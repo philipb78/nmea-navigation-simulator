@@ -1,0 +1,17 @@
+<resources>
+    <color name="md_theme_light_primary">#005B8F</color>
+    <color name="md_theme_light_onPrimary">#FFFFFF</color>
+    <color name="md_theme_light_primaryContainer">#CAE6FF</color>
+    <color name="md_theme_light_onPrimaryContainer">#001D31</color>
+    <color name="md_theme_light_secondary">#4D616F</color>
+    <color name="md_theme_light_onSecondary">#FFFFFF</color>
+    <color name="md_theme_light_background">#F7F9FC</color>
+    <color name="md_theme_light_surface">#F7F9FC</color>
+    <color name="md_theme_light_onSurface">#171C21</color>
+    <color name="md_theme_light_outline">#6F797F</color>
+    <color name="status_connected">#1B8F46</color>
+    <color name="status_disconnected">#B3261E</color>
+    <color name="route_color">#005B8F</color>
+    <color name="track_color">#1B8F46</color>
+    <color name="vessel_color">#B45F06</color>
+</resources>

@@ -1,0 +1,17 @@
+<resources>
+    <string name="app_name">NMEA Navigation Simulator</string>
+    <string name="toolbar_subtitle">NMEA to N2K / SeaTalk test source</string>
+    <string name="ip_address">IP address</string>
+    <string name="port">Port</string>
+    <string name="connect">Connect</string>
+    <string name="disconnect">Disconnect</string>
+    <string name="start_simulation">Start simulation</string>
+    <string name="stop_simulation">Stop simulation</string>
+    <string name="simulator_controls">Simulator controls</string>
+    <string name="speed_knots">Speed (knots)</string>
+    <string name="update_rate_hz">Update rate (Hz)</string>
+    <string name="course_deviation">Injected course deviation (NM)</string>
+    <string name="track_visualization">Track visualization</string>
+    <string name="live_navigation">Live navigation</string>
+    <string name="connection_log">Connection log</string>
+</resources>
