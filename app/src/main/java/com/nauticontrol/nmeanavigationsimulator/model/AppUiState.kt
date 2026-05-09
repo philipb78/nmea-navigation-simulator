@@ -3,6 +3,8 @@ package com.nauticontrol.nmeanavigationsimulator.model
 data class AppUiState(
     val ipAddress: String = "192.168.1.100",
     val port: String = "10110",
+    val ipAddressError: String? = null,
+    val portError: String? = null,
     val connectionState: ConnectionState = ConnectionState.DISCONNECTED,
     val isSimulating: Boolean = false,
     val statusText: String = "Disconnected | Stopped",
@@ -19,4 +21,13 @@ data class AppUiState(
     val vesselPosition: GeoPoint? = null,
     val headingTrue: Double = 0.0,
     val logLines: List<String> = listOf("Simulator ready")
+) {
+    val isConnectedOrConnecting: Boolean
+        get() = connectionState == ConnectionState.CONNECTED || connectionState == ConnectionState.CONNECTING
+
+    val canEditConnectionSettings: Boolean
+        get() = !isConnectedOrConnecting
+
+    val canToggleSimulation: Boolean
+        get() = !isConnectedOrConnecting || connectionState == ConnectionState.CONNECTED
 )

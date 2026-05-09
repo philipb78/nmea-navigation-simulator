@@ -3,6 +3,7 @@ package com.nauticontrol.nmeanavigationsimulator.model
 data class NavigationSnapshot(
     val position: GeoPoint,
     val headingTrue: Double,
+    val trackBearingTrue: Double,
     val speedKnots: Double,
     val crossTrackErrorNm: Double,
     val bearingToWaypoint: Double,

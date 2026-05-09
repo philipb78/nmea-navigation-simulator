@@ -1,33 +1,59 @@
 # NMEA Navigation Simulator
 
-Android Kotlin app for generating simulated NMEA 0183 navigation traffic over TCP for N2K / SeaTalk converter testing.
+Android app for testing NMEA → N2K / SeaTalk conversion firmware. Simulates vessel navigation with autopilot commands and sends NMEA sentences over TCP to your ESP32-based converter.
 
 ## Features
 
-- Material 3 XML UI
-- IP/port connection controls
-- Start/stop simulation
-- Track visualization with custom `TrackView`
-- Live heading, speed, XTE, and waypoint status
-- Generated sentences:
-  - `$GPAPB`
-  - `$GPXTE`
-  - `$GPRMC`
-  - `$GPGGA`
-  - `$GPVTG`
-- TCP client with reconnect loop and connection logging
-- ViewModel-driven state management
+- **TCP Client** — Connect to any IP:Port (default: 192.168.1.100:10110)
+- **NMEA Sentences** — Generates APB, XTE, RMC, GGA, VTG with proper checksums
+- **Navigation Simulation** — Waypoint tracking with autopilot corrections
+- **Course Deviation** — Inject off-track scenarios to test autopilot response
+- **Track Visualization** — Real-time canvas showing vessel position, heading, and track
+- **Material Design 3** — Clean, modern UI with sliders for speed, update rate, and deviation
 
-## Structure
+## NMEA Sentences Generated
 
-- `app/src/main/java/.../ui` - activity, view model, custom track view
-- `app/src/main/java/.../network` - TCP NMEA client
-- `app/src/main/java/.../nmea` - NMEA sentence generator with checksum handling
-- `app/src/main/java/.../simulation` - vessel motion and navigation math
-- `app/src/main/java/.../model` - UI and navigation models
+| Sentence | Description |
+|----------|-------------|
+| `$GPAPB` | Autopilot Sentence B — bearing, XTE, destination |
+| `$GPXTE` | Cross-Track Error — deviation from planned track |
+| `$GPRMC` | Recommended Minimum Navigation Information |
+| `$GPGGA` | GPS Fix Data — position, quality, satellites |
+| `$GPVTG` | Course Over Ground and Ground Speed |
 
-## Notes
+## Simulator Controls
 
-- Minimum SDK is 24.
-- The Gradle wrapper properties are included, but `gradle-wrapper.jar` was not generated in this workspace because no JDK/Gradle runtime is available locally.
-- Import the project in Android Studio to let it sync and regenerate wrapper artifacts if needed.
+- **Speed (knots)** — 1–30 knots, adjustable in 0.5 knot steps
+- **Update Rate (Hz)** — 1–10 updates per second
+- **Course Deviation (NM)** — Inject ±0.5 NM deviation to test autopilot corrections
+
+## Build & Run
+
+1. Open in **Android Studio** (Arctic Fox or newer)
+2. Sync Gradle files
+3. Build and run on device or emulator
+
+**Minimum SDK:** 24 (Android 7.0)
+
+## Usage for Testing
+
+1. **Connect** — Enter your Nauti-Controller IP and port (default: 192.168.1.100:10110)
+2. **Start Simulation** — Vessel begins navigating between waypoints
+3. **Adjust Deviation** — Use the course deviation slider to simulate off-track scenarios
+4. **Monitor** — Watch heading, speed, XTE, and track visualization
+5. **Test Autopilot** — ESP32 receives NMEA, converts to N2K/SeaTalk, autopilot should correct
+
+## Project Structure
+
+```
+app/src/main/java/com/nauticontrol/nmeanavigationsimulator/
+├── model/           # Data classes (GeoPoint, Waypoint, NavigationSnapshot)
+├── network/         # TCP client for NMEA transmission
+├── nmea/            # NMEA sentence generator with checksum
+├── simulation/      # Simulation engine and geo math
+└── ui/              # MainActivity, ViewModel, TrackView
+```
+
+## License
+
+MIT — Use for testing your Nauti Control projects.

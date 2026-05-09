@@ -105,6 +105,16 @@ object GeoMath {
         return normalized
     }
 
+    fun shortestSignedAngleDegrees(from: Double, to: Double): Double {
+        var delta = normalizeDegrees(to) - normalizeDegrees(from)
+        if (delta > 180.0) {
+            delta -= 360.0
+        } else if (delta < -180.0) {
+            delta += 360.0
+        }
+        return delta
+    }
+
     fun round(value: Double, decimals: Int): Double {
         val factor = 10.0.pow(decimals)
         return round(value * factor) / factor

@@ -11,6 +11,7 @@ import com.nauticontrol.nmeanavigationsimulator.nmea.NmeaGenerator
 import com.nauticontrol.nmeanavigationsimulator.simulation.GeoMath
 import com.nauticontrol.nmeanavigationsimulator.simulation.SimulationEngine
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,11 +20,13 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.Locale
+import java.util.regex.Pattern
 
 class MainViewModel : ViewModel() {
     private val tcpClient = TcpNmeaClient()
     private val simulationEngine = SimulationEngine()
     private val nmeaGenerator = NmeaGenerator()
+    private val hostPattern = Pattern.compile("^[a-zA-Z0-9.\\-:\\[\\]]+$")
 
     private val _uiState = MutableStateFlow(
         AppUiState(route = simulationEngine.currentRoute())
@@ -47,11 +50,21 @@ class MainViewModel : ViewModel() {
     }
 
     fun updateIpAddress(value: String) {
-        _uiState.update { it.copy(ipAddress = value) }
+        _uiState.update {
+            it.copy(
+                ipAddress = value,
+                ipAddressError = validateHost(value)
+            )
+        }
     }
 
     fun updatePort(value: String) {
-        _uiState.update { it.copy(port = value) }
+        _uiState.update {
+            it.copy(
+                port = value,
+                portError = validatePort(value)
+            )
+        }
     }
 
     fun updateSpeed(value: Float) {
@@ -86,18 +99,25 @@ class MainViewModel : ViewModel() {
 
     fun toggleConnection() {
         val state = _uiState.value
-        if (state.connectionState == ConnectionState.CONNECTED || state.connectionState == ConnectionState.CONNECTING) {
+        if (state.isConnectedOrConnecting) {
             tcpClient.disconnect()
             return
         }
 
-        val port = state.port.toIntOrNull()
-        if (port == null) {
-            appendLog("Invalid port: ${state.port}")
+        val ipError = validateHost(state.ipAddress)
+        val portError = validatePort(state.port)
+        if (ipError != null || portError != null) {
+            _uiState.update {
+                it.copy(
+                    ipAddressError = ipError,
+                    portError = portError
+                )
+            }
+            appendLog(ipError ?: portError.orEmpty())
             return
         }
 
-        tcpClient.connect(state.ipAddress.trim(), port)
+        tcpClient.connect(state.ipAddress.trim(), state.port.toInt())
     }
 
     fun toggleSimulation() {
@@ -121,9 +141,13 @@ class MainViewModel : ViewModel() {
         }
         appendLog("Simulation started")
         simulationJob = viewModelScope.launch {
+            var lastTickAt = System.currentTimeMillis()
             while (true) {
+                ensureActive()
                 val settings = _uiState.value.settings
-                val snapshot = simulationEngine.tick(settings)
+                val now = System.currentTimeMillis()
+                val snapshot = simulationEngine.tick(settings, now, lastTickAt)
+                lastTickAt = now
                 publishSnapshot(snapshot, settings)
                 delay((1000L / settings.updateRateHz).coerceAtLeast(100L))
             }
@@ -157,7 +181,7 @@ class MainViewModel : ViewModel() {
                     Locale.US,
                     "XTE: %.3f NM %s",
                     GeoMath.absRounded(snapshot.crossTrackErrorNm, 3),
-                    if (snapshot.crossTrackErrorNm >= 0) "port" else "starboard"
+                    if (snapshot.crossTrackErrorNm >= 0) "starboard" else "port"
                 ),
                 waypointText = String.format(
                     Locale.US,
@@ -191,7 +215,27 @@ class MainViewModel : ViewModel() {
 
     override fun onCleared() {
         simulationJob?.cancel()
-        tcpClient.disconnect()
+        tcpClient.close()
         super.onCleared()
+    }
+
+    private fun validateHost(value: String): String? {
+        val host = value.trim()
+        return when {
+            host.isEmpty() -> "Host is required"
+            host.contains(' ') -> "Host cannot contain spaces"
+            !hostPattern.matcher(host).matches() -> "Host contains invalid characters"
+            else -> null
+        }
+    }
+
+    private fun validatePort(value: String): String? {
+        val port = value.toIntOrNull()
+        return when {
+            value.isBlank() -> "Port is required"
+            port == null -> "Port must be numeric"
+            port !in 1..65535 -> "Port must be between 1 and 65535"
+            else -> null
+        }
     }
 }

@@ -3,19 +3,17 @@ package com.nauticontrol.nmeanavigationsimulator.nmea
 import com.nauticontrol.nmeanavigationsimulator.model.GeoPoint
 import com.nauticontrol.nmeanavigationsimulator.model.NavigationSnapshot
 import com.nauticontrol.nmeanavigationsimulator.simulation.GeoMath
-import java.text.SimpleDateFormat
-import java.util.Date
+import java.time.Instant
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
 import java.util.Locale
-import java.util.TimeZone
 import kotlin.math.absoluteValue
 
 class NmeaGenerator {
-    private val utcTimeFormat = SimpleDateFormat("HHmmss.SS", Locale.US).apply {
-        timeZone = TimeZone.getTimeZone("UTC")
-    }
-    private val utcDateFormat = SimpleDateFormat("ddMMyy", Locale.US).apply {
-        timeZone = TimeZone.getTimeZone("UTC")
-    }
+    private val utcTimeFormat = DateTimeFormatter.ofPattern("HHmmss.SS", Locale.US)
+        .withZone(ZoneOffset.UTC)
+    private val utcDateFormat = DateTimeFormatter.ofPattern("ddMMyy", Locale.US)
+        .withZone(ZoneOffset.UTC)
 
     fun generate(snapshot: NavigationSnapshot): List<String> {
         return listOf(
@@ -30,9 +28,11 @@ class NmeaGenerator {
     private fun gpApb(snapshot: NavigationSnapshot): String {
         val xteMagnitude = "%.2f".format(Locale.US, snapshot.crossTrackErrorNm.absoluteValue)
         val steerDirection = if (snapshot.crossTrackErrorNm >= 0) "L" else "R"
-        val bearing = "%.1f".format(Locale.US, snapshot.bearingToWaypoint)
+        val bearingToWaypoint = "%.1f".format(Locale.US, snapshot.bearingToWaypoint)
+        val bearingOriginToDestination = "%.1f".format(Locale.US, snapshot.trackBearingTrue)
         val heading = "%.1f".format(Locale.US, snapshot.headingTrue)
-        val destination = snapshot.currentWaypoint.name
+        val destination = safeField(snapshot.currentWaypoint.name).take(6)
+        val arrivalStatus = if (snapshot.distanceToWaypointNm <= 0.02) "A" else "V"
         return sentence(
             "GPAPB",
             "A",
@@ -40,14 +40,14 @@ class NmeaGenerator {
             xteMagnitude,
             steerDirection,
             "N",
-            "V",
-            "V",
-            bearing,
+            arrivalStatus,
+            arrivalStatus,
+            bearingOriginToDestination,
             "T",
             destination,
             heading,
             "T",
-            bearing,
+            bearingToWaypoint,
             "T"
         )
     }
@@ -59,10 +59,10 @@ class NmeaGenerator {
     }
 
     private fun gpRmc(snapshot: NavigationSnapshot): String {
-        val date = Date(snapshot.timestampMillis)
+        val instant = Instant.ofEpochMilli(snapshot.timestampMillis)
         return sentence(
             "GPRMC",
-            utcTimeFormat.format(date),
+            utcTimeFormat.format(instant),
             "A",
             latitude(snapshot.position),
             latitudeHemisphere(snapshot.position),
@@ -70,7 +70,7 @@ class NmeaGenerator {
             longitudeHemisphere(snapshot.position),
             "%.2f".format(Locale.US, snapshot.speedKnots),
             "%.1f".format(Locale.US, snapshot.headingTrue),
-            utcDateFormat.format(date),
+            utcDateFormat.format(instant),
             "",
             "",
             "A"
@@ -78,10 +78,10 @@ class NmeaGenerator {
     }
 
     private fun gpGga(snapshot: NavigationSnapshot): String {
-        val date = Date(snapshot.timestampMillis)
+        val instant = Instant.ofEpochMilli(snapshot.timestampMillis)
         return sentence(
             "GPGGA",
-            utcTimeFormat.format(date),
+            utcTimeFormat.format(instant),
             latitude(snapshot.position),
             latitudeHemisphere(snapshot.position),
             longitude(snapshot.position),
@@ -132,7 +132,11 @@ class NmeaGenerator {
         GeoMath.directionLetter(point.latitude, "N", "S")
 
     private fun longitudeHemisphere(point: GeoPoint): String =
-        GeoMath.directionLetter(-point.longitude, "W", "E")
+        if (point.longitude >= 0) "E" else "W"
+
+    private fun safeField(value: String): String {
+        return value.filterNot { it == ',' || it == '*' || it == '$' || it.code < 32 }
+    }
 
     private fun sentence(type: String, vararg fields: String): String {
         val body = buildString {

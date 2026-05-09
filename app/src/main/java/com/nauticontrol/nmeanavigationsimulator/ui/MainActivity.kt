@@ -1,12 +1,11 @@
 package com.nauticontrol.nmeanavigationsimulator.ui
 
 import android.os.Bundle
-import android.text.Editable
-import android.text.TextWatcher
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
-import com.google.android.material.textfield.TextInputEditText
+import androidx.core.widget.doAfterTextChanged
+import com.google.android.material.textfield.TextInputLayout
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
@@ -36,9 +35,12 @@ class MainActivity : AppCompatActivity() {
         binding.speedConfigTextView.text = viewModel.uiState.value.speedConfigText
         binding.updateRateTextView.text = viewModel.uiState.value.updateRateText
         binding.deviationTextView.text = viewModel.uiState.value.deviationText
+        binding.speedSlider.value = viewModel.uiState.value.settings.speedKnots.toFloat()
+        binding.updateRateSlider.value = viewModel.uiState.value.settings.updateRateHz.toFloat()
+        binding.deviationSlider.value = viewModel.uiState.value.settings.injectedDeviationNm.toFloat()
 
-        binding.ipEditText.doAfterTextChanged { viewModel.updateIpAddress(it) }
-        binding.portEditText.doAfterTextChanged { viewModel.updatePort(it) }
+        binding.ipEditText.doAfterTextChanged { viewModel.updateIpAddress(it?.toString().orEmpty()) }
+        binding.portEditText.doAfterTextChanged { viewModel.updatePort(it?.toString().orEmpty()) }
         binding.connectButton.setOnClickListener { viewModel.toggleConnection() }
         binding.simulationButton.setOnClickListener { viewModel.toggleSimulation() }
         binding.speedSlider.addOnChangeListener { _, value, fromUser ->
@@ -57,21 +59,26 @@ class MainActivity : AppCompatActivity() {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.uiState.collect { state ->
                     binding.connectButton.text =
-                        if (state.connectionState == ConnectionState.CONNECTED || state.connectionState == ConnectionState.CONNECTING) {
+                        if (state.isConnectedOrConnecting) {
                             getString(R.string.disconnect)
                         } else {
                             getString(R.string.connect)
                         }
                     binding.simulationButton.text =
                         if (state.isSimulating) getString(R.string.stop_simulation) else getString(R.string.start_simulation)
+                    binding.simulationButton.isEnabled = state.canToggleSimulation
+                    binding.ipInputLayout.isEnabled = state.canEditConnectionSettings
+                    binding.portInputLayout.isEnabled = state.canEditConnectionSettings
+                    binding.ipInputLayout.renderError(state.ipAddressError)
+                    binding.portInputLayout.renderError(state.portError)
                     binding.statusTextView.text = state.statusText
                     binding.statusTextView.setTextColor(
                         ContextCompat.getColor(
                             this@MainActivity,
-                            if (state.connectionState == ConnectionState.CONNECTED) {
-                                R.color.status_connected
-                            } else {
-                                R.color.status_disconnected
+                            when (state.connectionState) {
+                                ConnectionState.CONNECTED -> R.color.status_connected
+                                ConnectionState.CONNECTING -> R.color.route_color
+                                ConnectionState.DISCONNECTED -> R.color.status_disconnected
                             }
                         )
                     )
@@ -95,14 +102,7 @@ class MainActivity : AppCompatActivity() {
     }
 }
 
-private fun TextInputEditText.doAfterTextChanged(onChanged: (String) -> Unit) {
-    addTextChangedListener(object : TextWatcher {
-        override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
-
-        override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
-
-        override fun afterTextChanged(s: Editable?) {
-            onChanged(s?.toString().orEmpty())
-        }
-    })
+private fun TextInputLayout.renderError(errorMessage: String?) {
+    error = errorMessage
+    isErrorEnabled = !errorMessage.isNullOrEmpty()
 }
