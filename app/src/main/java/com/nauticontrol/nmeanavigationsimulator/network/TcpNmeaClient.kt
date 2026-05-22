@@ -82,14 +82,21 @@ class TcpNmeaClient {
         if (sentences.isEmpty()) {
             return
         }
+        val currentState = _connectionState.value
+        if (currentState != ConnectionState.CONNECTED) {
+            onLog("Send skipped: not connected (state=$currentState)")
+            return
+        }
         scope.launch {
             try {
                 socketMutex.withLock {
-                    val activeWriter = writer ?: throw IllegalStateException("socket unavailable")
+                    val activeWriter = writer ?: run {
+                        onLog("Send skipped: writer unavailable")
+                        return@withLock
+                    }
                     sentences.forEach { sentence ->
                         activeWriter.write(sentence)
                         activeWriter.write("\r\n")
-                        onLog("TX $sentence")
                     }
                     activeWriter.flush()
                 }
