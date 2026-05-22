@@ -8,6 +8,7 @@ data class NavigationSnapshot(
     val crossTrackErrorNm: Double,
     val bearingToWaypoint: Double,
     val distanceToWaypointNm: Double,
+    val previousWaypoint: Waypoint,
     val currentWaypoint: Waypoint,
     val route: List<GeoPoint>,
     val vesselTrack: List<GeoPoint>,

@@ -22,7 +22,9 @@ class NmeaGenerator {
             gpXte(snapshot),
             gpRmc(snapshot),
             gpGga(snapshot),
-            gpVtg(snapshot)
+            gpVtg(snapshot),
+            gpVhw(snapshot),
+            gpRmb(snapshot)
         )
     }
 
@@ -97,6 +99,41 @@ class NmeaGenerator {
             "M",
             "",
             ""
+        )
+    }
+
+    private fun gpVhw(snapshot: NavigationSnapshot): String {
+        val speedKmh = snapshot.speedKnots * 1.852
+        return sentence(
+            "GPVHW",
+            "%.1f".format(Locale.US, snapshot.headingTrue), "T",
+            "", "M",
+            "%.2f".format(Locale.US, snapshot.speedKnots), "N",
+            "%.2f".format(Locale.US, speedKmh), "K"
+        )
+    }
+
+    private fun gpRmb(snapshot: NavigationSnapshot): String {
+        val xteMagnitude = "%.2f".format(Locale.US, snapshot.crossTrackErrorNm.absoluteValue)
+        val steerDirection = if (snapshot.crossTrackErrorNm >= 0) "L" else "R"
+        val origin = safeField(snapshot.previousWaypoint.name).take(6)
+        val destination = safeField(snapshot.currentWaypoint.name).take(6)
+        val range = "%.3f".format(Locale.US, snapshot.distanceToWaypointNm)
+        val bearing = "%.1f".format(Locale.US, snapshot.bearingToWaypoint)
+        val closingVelocity = "%.1f".format(Locale.US, snapshot.speedKnots)
+        val arrivalStatus = if (snapshot.distanceToWaypointNm <= 0.02) "A" else "V"
+        return sentence(
+            "GPRMB",
+            "A",
+            xteMagnitude, steerDirection,
+            origin, destination,
+            latitude(snapshot.currentWaypoint.position),
+            latitudeHemisphere(snapshot.currentWaypoint.position),
+            longitude(snapshot.currentWaypoint.position),
+            longitudeHemisphere(snapshot.currentWaypoint.position),
+            range, bearing,
+            closingVelocity,
+            arrivalStatus
         )
     }
 

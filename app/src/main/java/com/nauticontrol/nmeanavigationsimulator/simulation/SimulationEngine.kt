@@ -91,6 +91,7 @@ class SimulationEngine(
             crossTrackErrorNm = signedXte,
             bearingToWaypoint = GeoMath.bearingDegrees(vesselPosition, activeWaypoint.position),
             distanceToWaypointNm = GeoMath.distanceNm(vesselPosition, activeWaypoint.position),
+            previousWaypoint = routeWaypoints[routeIndex - 1],
             currentWaypoint = activeWaypoint,
             route = currentRoute(),
             vesselTrack = vesselTrack.toList(),
