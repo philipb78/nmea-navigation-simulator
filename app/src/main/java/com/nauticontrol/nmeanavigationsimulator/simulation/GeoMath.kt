@@ -49,7 +49,7 @@ object GeoMath {
             sin(bearing) * sin(angularDistance) * cos(lat1),
             cos(angularDistance) - sin(lat1) * sin(lat2)
         )
-        return GeoPoint(Math.toDegrees(lat2), Math.toDegrees(lon2))
+        return GeoPoint(Math.toDegrees(lat2), normalizeLongitude(Math.toDegrees(lon2)))
     }
 
     fun crossTrackErrorNm(position: GeoPoint, segmentStart: GeoPoint, segmentEnd: GeoPoint): Double {
@@ -85,7 +85,7 @@ object GeoMath {
         val lon = origin.longitude + Math.toDegrees(
             (eastNm * MetersPerNm) / (6_378_137.0 * cos(origin.latitude.toRadians()))
         )
-        return GeoPoint(lat, lon)
+        return GeoPoint(lat, normalizeLongitude(lon))
     }
 
     fun distanceEastNm(origin: GeoPoint, point: GeoPoint): Double {
@@ -101,6 +101,14 @@ object GeoMath {
         var normalized = value % 360.0
         if (normalized < 0) {
             normalized += 360.0
+        }
+        return normalized
+    }
+
+    fun normalizeLongitude(value: Double): Double {
+        var normalized = (value + 540.0) % 360.0 - 180.0
+        if (normalized == -180.0 && value > 0.0) {
+            normalized = 180.0
         }
         return normalized
     }

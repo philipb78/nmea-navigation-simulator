@@ -8,6 +8,7 @@ import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.absoluteValue
+import kotlin.math.roundToLong
 
 class NmeaGenerator {
     private val utcTimeFormat = DateTimeFormatter.ofPattern("HHmmss.SS", Locale.US)
@@ -30,7 +31,7 @@ class NmeaGenerator {
         val steerDirection = if (snapshot.crossTrackErrorNm >= 0) "L" else "R"
         val bearingToWaypoint = "%.1f".format(Locale.US, snapshot.bearingToWaypoint)
         val bearingOriginToDestination = "%.1f".format(Locale.US, snapshot.trackBearingTrue)
-        val heading = "%.1f".format(Locale.US, snapshot.headingTrue)
+        val headingToSteer = "%.1f".format(Locale.US, snapshot.trackBearingTrue)
         val destination = safeField(snapshot.currentWaypoint.name).take(6)
         val arrivalStatus = if (snapshot.distanceToWaypointNm <= 0.02) "A" else "V"
         return sentence(
@@ -45,10 +46,11 @@ class NmeaGenerator {
             bearingOriginToDestination,
             "T",
             destination,
-            heading,
-            "T",
             bearingToWaypoint,
-            "T"
+            "T",
+            headingToSteer,
+            "T",
+            "A"
         )
     }
 
@@ -115,24 +117,25 @@ class NmeaGenerator {
     }
 
     private fun latitude(point: GeoPoint): String {
-        val value = point.latitude.absoluteValue
-        val degrees = value.toInt()
-        val minutes = (value - degrees) * 60.0
-        return "%02d%06.3f".format(Locale.US, degrees, minutes)
+        return coordinate(point.latitude.coerceIn(-90.0, 90.0).absoluteValue, degreeWidth = 2)
     }
 
     private fun longitude(point: GeoPoint): String {
-        val value = point.longitude.absoluteValue
-        val degrees = value.toInt()
-        val minutes = (value - degrees) * 60.0
-        return "%03d%06.3f".format(Locale.US, degrees, minutes)
+        return coordinate(GeoMath.normalizeLongitude(point.longitude).absoluteValue, degreeWidth = 3)
     }
 
     private fun latitudeHemisphere(point: GeoPoint): String =
         GeoMath.directionLetter(point.latitude, "N", "S")
 
     private fun longitudeHemisphere(point: GeoPoint): String =
-        if (point.longitude >= 0) "E" else "W"
+        if (GeoMath.normalizeLongitude(point.longitude) >= 0) "E" else "W"
+
+    private fun coordinate(value: Double, degreeWidth: Int): String {
+        val totalMinuteThousandths = (value * 60_000.0).roundToLong()
+        val degrees = totalMinuteThousandths / 60_000
+        val minutes = (totalMinuteThousandths % 60_000) / 1000.0
+        return "%0${degreeWidth}d%06.3f".format(Locale.US, degrees, minutes)
+    }
 
     private fun safeField(value: String): String {
         return value.filterNot { it == ',' || it == '*' || it == '$' || it.code < 32 }

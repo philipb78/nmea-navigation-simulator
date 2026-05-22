@@ -29,7 +29,7 @@ class NmeaGeneratorTest {
     fun `apb sentence sanitizes waypoint ids and uses track bearing`() {
         val apb = generator.generate(snapshot(waypointName = "WP,*\$7"))[0]
 
-        assertTrue(apb.contains(",090.0,T,WP7,"))
+        assertTrue(apb.contains(",090.0,T,WP7,093.4,T,090.0,T,A*"))
         assertFalse(apb.contains("*\$7"))
     }
 
@@ -38,6 +38,15 @@ class NmeaGeneratorTest {
         val rmc = generator.generate(snapshot(position = GeoPoint(50.5, -1.25)))[2]
 
         assertTrue(rmc.contains(",N,00115.000,W,"))
+    }
+
+    @Test
+    fun `coordinate rounding rolls minutes into degrees`() {
+        val rmc = generator.generate(snapshot(position = GeoPoint(12.9999999, 179.9999999)))[2]
+
+        assertTrue(rmc.contains(",1300.000,N,18000.000,E,"))
+        assertFalse(rmc.contains("1260.000"))
+        assertFalse(rmc.contains("17960.000"))
     }
 
     private fun snapshot(

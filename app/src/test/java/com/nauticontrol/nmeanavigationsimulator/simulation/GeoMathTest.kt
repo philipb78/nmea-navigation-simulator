@@ -28,4 +28,13 @@ class GeoMathTest {
 
         assertTrue(GeoMath.crossTrackErrorNm(pointSouth, start, end) > 0.0)
     }
+
+    @Test
+    fun `move normalizes longitude across anti meridian`() {
+        val start = GeoPoint(0.0, 179.9)
+        val end = GeoMath.move(start, 90.0, 20.0)
+
+        assertTrue(end.longitude in -180.0..180.0)
+        assertTrue(end.longitude < -179.0)
+    }
 }

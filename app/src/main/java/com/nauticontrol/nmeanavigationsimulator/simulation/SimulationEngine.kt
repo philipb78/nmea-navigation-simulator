@@ -9,6 +9,10 @@ import kotlin.math.absoluteValue
 class SimulationEngine(
     private val routeWaypoints: List<Waypoint> = defaultWaypoints()
 ) {
+    init {
+        require(routeWaypoints.size >= 2) { "Simulation route requires at least two waypoints" }
+    }
+
     private var routeIndex = 1
     private var vesselPosition = routeWaypoints.first().position
     private var headingTrue = GeoMath.bearingDegrees(routeWaypoints[0].position, routeWaypoints[1].position)
@@ -31,7 +35,8 @@ class SimulationEngine(
         timestampMillis: Long = System.currentTimeMillis(),
         previousTimestampMillis: Long? = lastTickTimestampMillis
     ): NavigationSnapshot {
-        val deltaSeconds = calculateDeltaSeconds(settings, timestampMillis, previousTimestampMillis)
+        val sanitizedSettings = settings.sanitized()
+        val deltaSeconds = calculateDeltaSeconds(sanitizedSettings, timestampMillis, previousTimestampMillis)
         lastTickTimestampMillis = timestampMillis
 
         var fromWaypoint = routeWaypoints[routeIndex - 1]
@@ -49,10 +54,10 @@ class SimulationEngine(
             .coerceIn(-maxHeadingStep, maxHeadingStep)
         headingTrue = GeoMath.normalizeDegrees(headingTrue + turnStep)
 
-        val distancePerTick = settings.speedKnots * deltaSeconds / 3600.0
+        val distancePerTick = sanitizedSettings.speedKnots * deltaSeconds / 3600.0
         vesselPosition = GeoMath.move(vesselPosition, headingTrue, distancePerTick)
 
-        val disturbanceError = settings.injectedDeviationNm - signedXte
+        val disturbanceError = sanitizedSettings.injectedDeviationNm - signedXte
         if (disturbanceError.absoluteValue > 0.0001) {
             val lateralStep = disturbanceError * minOf(0.25 * deltaSeconds, 1.0)
             val routeNormalBearing = GeoMath.normalizeDegrees(
@@ -82,7 +87,7 @@ class SimulationEngine(
             position = vesselPosition,
             headingTrue = headingTrue,
             trackBearingTrue = trackBearing,
-            speedKnots = settings.speedKnots,
+            speedKnots = sanitizedSettings.speedKnots,
             crossTrackErrorNm = signedXte,
             bearingToWaypoint = GeoMath.bearingDegrees(vesselPosition, activeWaypoint.position),
             distanceToWaypointNm = GeoMath.distanceNm(vesselPosition, activeWaypoint.position),
@@ -102,6 +107,14 @@ class SimulationEngine(
             return 1.0 / settings.updateRateHz.coerceAtLeast(1)
         }
         return ((timestampMillis - previousTimestampMillis) / 1000.0).coerceIn(0.05, 2.0)
+    }
+
+    private fun SimulatorSettings.sanitized(): SimulatorSettings {
+        return copy(
+            speedKnots = speedKnots.coerceAtLeast(0.0),
+            updateRateHz = updateRateHz.coerceAtLeast(1),
+            injectedDeviationNm = injectedDeviationNm.coerceIn(-5.0, 5.0)
+        )
     }
 
     companion object {

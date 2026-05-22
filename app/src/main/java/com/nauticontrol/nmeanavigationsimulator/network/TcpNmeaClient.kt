@@ -19,6 +19,7 @@ import java.io.BufferedWriter
 import java.io.OutputStreamWriter
 import java.net.InetSocketAddress
 import java.net.Socket
+import java.util.concurrent.atomic.AtomicInteger
 
 class TcpNmeaClient {
     private val scopeJob = SupervisorJob()
@@ -29,6 +30,7 @@ class TcpNmeaClient {
 
     private var socket: Socket? = null
     private var writer: BufferedWriter? = null
+    private val connectionGeneration = AtomicInteger(0)
     @Volatile
     private var host: String = ""
     @Volatile
@@ -43,36 +45,43 @@ class TcpNmeaClient {
         this.host = host
         this.port = port
         keepConnected = true
-        if (reconnectJob?.isActive == true) {
-            return
+        connectionGeneration.incrementAndGet()
+        scope.launch {
+            socketMutex.withLock {
+                closeSocketLocked()
+            }
         }
-        reconnectJob = scope.launch {
-            maintainConnection()
+        if (reconnectJob?.isActive != true) {
+            reconnectJob = scope.launch {
+                maintainConnection()
+            }
         }
     }
 
     fun disconnect() {
         keepConnected = false
+        connectionGeneration.incrementAndGet()
         reconnectJob?.cancel()
         reconnectJob = null
+        updateState(ConnectionState.DISCONNECTED)
         scope.launch {
             socketMutex.withLock {
                 closeSocketLocked()
             }
-            updateState(ConnectionState.DISCONNECTED)
             onLog("Disconnected")
         }
     }
 
     fun close() {
         keepConnected = false
+        connectionGeneration.incrementAndGet()
         reconnectJob?.cancel()
         reconnectJob = null
+        updateState(ConnectionState.DISCONNECTED)
         scope.launch {
             socketMutex.withLock {
                 closeSocketLocked()
             }
-            updateState(ConnectionState.DISCONNECTED)
         }.invokeOnCompletion {
             scope.cancel()
         }
@@ -84,7 +93,6 @@ class TcpNmeaClient {
         }
         val currentState = _connectionState.value
         if (currentState != ConnectionState.CONNECTED) {
-            onLog("Send skipped: not connected (state=$currentState)")
             return
         }
         scope.launch {
@@ -109,37 +117,63 @@ class TcpNmeaClient {
     private suspend fun maintainConnection() {
         while (keepConnected && currentCoroutineContext().isActive) {
             val connected = socketMutex.withLock {
-                if (writer != null && socket?.isConnected == true && socket?.isClosed == false) {
+                hasOpenSocketLocked()
+            }
+            if (connected) {
+                delay(750L)
+                continue
+            }
+
+            val attemptGeneration = connectionGeneration.get()
+            val attemptHost = host
+            val attemptPort = port
+            updateState(ConnectionState.CONNECTING)
+            onLog("Connecting to $attemptHost:$attemptPort")
+
+            val newSocket = try {
+                Socket().apply {
+                    tcpNoDelay = true
+                    soTimeout = 5_000
+                    connect(InetSocketAddress(attemptHost, attemptPort), 3_000)
+                }
+            } catch (error: Exception) {
+                socketMutex.withLock {
+                    closeSocketLocked()
+                }
+                if (keepConnected && attemptGeneration == connectionGeneration.get()) {
+                    updateState(ConnectionState.DISCONNECTED)
+                    onLog("Connection error: ${error.message ?: error::class.java.simpleName}. Retrying...")
+                    delay(2_000L)
+                }
+                continue
+            }
+
+            val attemptStillActive = currentCoroutineContext().isActive
+            val accepted = socketMutex.withLock {
+                if (keepConnected &&
+                    attemptStillActive &&
+                    attemptGeneration == connectionGeneration.get()
+                ) {
+                    closeSocketLocked()
+                    socket = newSocket
+                    writer = BufferedWriter(OutputStreamWriter(newSocket.getOutputStream()))
                     true
                 } else {
-                    try {
-                        updateState(ConnectionState.CONNECTING)
-                        onLog("Connecting to $host:$port")
-                        val newSocket = Socket()
-                        newSocket.connect(InetSocketAddress(host, port), 3_000)
-                        if (!keepConnected || !currentCoroutineContext().isActive) {
-                            try {
-                                newSocket.close()
-                            } catch (_: Exception) {
-                            }
-                            updateState(ConnectionState.DISCONNECTED)
-                            false
-                        } else {
-                            socket = newSocket
-                            writer = BufferedWriter(OutputStreamWriter(newSocket.getOutputStream()))
-                            updateState(ConnectionState.CONNECTED)
-                            onLog("Connected to $host:$port")
-                            true
-                        }
-                    } catch (error: Exception) {
-                        closeSocketLocked()
-                        updateState(ConnectionState.DISCONNECTED)
-                        onLog("Connection error: ${error.message}. Retrying...")
-                        false
-                    }
+                    false
                 }
             }
-            delay(if (connected) 750L else 2_000L)
+
+            if (accepted) {
+                updateState(ConnectionState.CONNECTED)
+                onLog("Connected to $attemptHost:$attemptPort")
+                delay(750L)
+            } else {
+                try {
+                    newSocket.close()
+                } catch (_: Exception) {
+                }
+                updateState(ConnectionState.DISCONNECTED)
+            }
         }
     }
 
@@ -150,6 +184,14 @@ class TcpNmeaClient {
         updateState(ConnectionState.DISCONNECTED)
         val suffix = if (keepConnected) " Reconnecting..." else ""
         onLog("$prefix: ${error.message ?: error::class.java.simpleName}.$suffix")
+    }
+
+    private fun hasOpenSocketLocked(): Boolean {
+        val activeSocket = socket ?: return false
+        return writer != null &&
+            activeSocket.isConnected &&
+            !activeSocket.isClosed &&
+            !activeSocket.isOutputShutdown
     }
 
     private fun closeSocketLocked() {

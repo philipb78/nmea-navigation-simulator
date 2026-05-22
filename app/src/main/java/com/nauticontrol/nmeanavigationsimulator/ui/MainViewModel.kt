@@ -11,8 +11,8 @@ import com.nauticontrol.nmeanavigationsimulator.nmea.NmeaGenerator
 import com.nauticontrol.nmeanavigationsimulator.simulation.GeoMath
 import com.nauticontrol.nmeanavigationsimulator.simulation.SimulationEngine
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -79,7 +79,7 @@ class MainViewModel : ViewModel() {
 
     fun updateRate(value: Float) {
         _uiState.update {
-            val settings = it.settings.copy(updateRateHz = value.toInt())
+            val settings = it.settings.copy(updateRateHz = value.toInt().coerceAtLeast(1))
             it.copy(
                 settings = settings,
                 updateRateText = "${settings.updateRateHz} Hz"
@@ -149,7 +149,7 @@ class MainViewModel : ViewModel() {
                 val snapshot = simulationEngine.tick(settings, now, lastTickAt)
                 lastTickAt = now
                 publishSnapshot(snapshot, settings)
-                delay((1000L / settings.updateRateHz).coerceAtLeast(100L))
+                delay((1000L / settings.updateRateHz.coerceAtLeast(1)).coerceAtLeast(100L))
             }
         }
     }

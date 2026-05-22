@@ -3,6 +3,7 @@ package com.nauticontrol.nmeanavigationsimulator.simulation
 import com.nauticontrol.nmeanavigationsimulator.model.GeoPoint
 import com.nauticontrol.nmeanavigationsimulator.model.SimulatorSettings
 import com.nauticontrol.nmeanavigationsimulator.model.Waypoint
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -25,5 +26,24 @@ class SimulationEngineTest {
         val twoStep = twoStepEngine.tick(settings2Hz, timestampMillis = 1_000L, previousTimestampMillis = 500L)
 
         assertTrue(GeoMath.distanceNm(oneStep.position, twoStep.position) < 0.01)
+    }
+
+    @Test
+    fun `route requires at least two waypoints`() {
+        assertThrows(IllegalArgumentException::class.java) {
+            SimulationEngine(listOf(Waypoint("A", GeoPoint(50.7050, -1.2980))))
+        }
+    }
+
+    @Test
+    fun `invalid update rate is clamped for simulation tick`() {
+        val engine = SimulationEngine(route)
+        val snapshot = engine.tick(
+            SimulatorSettings(speedKnots = 12.0, updateRateHz = 0, injectedDeviationNm = 0.0),
+            timestampMillis = 1_000L,
+            previousTimestampMillis = null
+        )
+
+        assertTrue(snapshot.speedKnots > 0.0)
     }
 }
