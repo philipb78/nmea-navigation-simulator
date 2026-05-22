@@ -29,5 +29,5 @@ data class AppUiState(
         get() = !isConnectedOrConnecting
 
     val canToggleSimulation: Boolean
-        get() = !isConnectedOrConnecting || connectionState == ConnectionState.CONNECTED
-)
+        get() = connectionState == ConnectionState.CONNECTED || connectionState == ConnectionState.CONNECTING
+}
