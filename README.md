@@ -5,11 +5,12 @@ Android app for testing NMEA → N2K / SeaTalk conversion firmware. Simulates ve
 ## Features
 
 - **TCP Client** — Connect to any IP:Port (default: 192.168.1.100:10110)
-- **NMEA Sentences** — Generates APB, XTE, RMC, GGA, VTG with proper checksums
-- **Navigation Simulation** — Waypoint tracking with autopilot corrections
+- **NMEA Sentences** — Generates navigation and marine sensor sentences with proper checksums
+- **Navigation Simulation** — Waypoint tracking with autopilot corrections and current-adjusted SOG
+- **Environmental Simulation** — Wind, depth, water temperature, and current controls
 - **Course Deviation** — Inject off-track scenarios to test autopilot response
 - **Track Visualization** — Real-time canvas showing vessel position, heading, and track
-- **Material Design 3** — Clean, modern UI with sliders for speed, update rate, and deviation
+- **Material Design 3** — Clean, modern UI with collapsible slider sections
 
 ## NMEA Sentences Generated
 
@@ -20,12 +21,25 @@ Android app for testing NMEA → N2K / SeaTalk conversion firmware. Simulates ve
 | `$GPRMC` | Recommended Minimum Navigation Information |
 | `$GPGGA` | GPS Fix Data — position, quality, satellites |
 | `$GPVTG` | Course Over Ground and Ground Speed |
+| `$GPVHW` | Water speed and heading |
+| `$GPRMB` | Recommended Minimum Navigation Information |
+| `$WIMWV` | Wind speed and angle |
+| `$WIMWD` | Wind direction and speed |
+| `$SDDBD` | Depth below transducer |
+| `$SDDPT` | Depth |
+| `$IIVBW` | Dual ground and water speed |
+| `$HCHDT` | True heading |
+| `$HCHDG` | Heading, deviation, and variation |
+| `$YCMTW` | Water temperature |
 
 ## Simulator Controls
 
-- **Speed (knots)** — 1–30 knots, adjustable in 0.5 knot steps
+- **Speed (knots)** — 1–30 knots STW, adjustable in 0.5 knot steps
 - **Update Rate (Hz)** — 1–10 updates per second
 - **Course Deviation (NM)** — Inject ±0.5 NM deviation to test autopilot corrections
+- **Wind** — Direction and speed for MWV/MWD output
+- **Depth and Temperature** — Depth and water temperature for DBD/DPT/MTW output
+- **Current** — Direction and speed used to derive COG/SOG from vessel STW
 
 ## Build & Run
 

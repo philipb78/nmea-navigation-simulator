@@ -46,4 +46,24 @@ class SimulationEngineTest {
 
         assertTrue(snapshot.speedKnots > 0.0)
     }
+
+    @Test
+    fun `current changes speed over ground while preserving speed through water`() {
+        val engine = SimulationEngine(route)
+        val snapshot = engine.tick(
+            SimulatorSettings(
+                speedKnots = 10.0,
+                updateRateHz = 1,
+                injectedDeviationNm = 0.0,
+                currentDirectionTrue = 90.0,
+                currentSpeedKnots = 2.0
+            ),
+            timestampMillis = 1_000L,
+            previousTimestampMillis = 0L
+        )
+
+        assertTrue(snapshot.speedThroughWaterKnots == 10.0)
+        assertTrue(snapshot.speedOverGroundKnots > 10.0)
+        assertTrue(snapshot.courseOverGroundTrue != snapshot.headingTrue)
+    }
 }

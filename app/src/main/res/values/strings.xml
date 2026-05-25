@@ -11,6 +11,16 @@
     <string name="speed_knots">Speed (knots)</string>
     <string name="update_rate_hz">Update rate (Hz)</string>
     <string name="course_deviation">Injected course deviation (NM)</string>
+    <string name="vessel_controls">Vessel</string>
+    <string name="wind_controls">Wind</string>
+    <string name="water_controls">Depth and temperature</string>
+    <string name="current_controls">Current</string>
+    <string name="wind_direction_true">Wind direction (°T)</string>
+    <string name="wind_speed_knots">Wind speed (knots)</string>
+    <string name="depth_meters">Depth (m)</string>
+    <string name="water_temperature_celsius">Water temperature (°C)</string>
+    <string name="current_direction_true">Current direction (°T)</string>
+    <string name="current_speed_knots">Current speed (knots)</string>
     <string name="track_visualization">Track visualization</string>
     <string name="live_navigation">Live navigation</string>
     <string name="connection_log">Connection log</string>

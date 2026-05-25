@@ -97,6 +97,70 @@ class MainViewModel : ViewModel() {
         }
     }
 
+    fun updateWindDirection(value: Float) {
+        _uiState.update {
+            val settings = it.settings.copy(windDirectionTrue = value.toDouble())
+            it.copy(settings = settings, windDirectionText = String.format(Locale.US, "%.0f°T", settings.windDirectionTrue))
+        }
+    }
+
+    fun updateWindSpeed(value: Float) {
+        _uiState.update {
+            val settings = it.settings.copy(windSpeedKnots = value.toDouble())
+            it.copy(settings = settings, windSpeedText = String.format(Locale.US, "%.1f kn", settings.windSpeedKnots))
+        }
+    }
+
+    fun updateDepth(value: Float) {
+        _uiState.update {
+            val settings = it.settings.copy(depthMeters = value.toDouble())
+            it.copy(settings = settings, depthText = String.format(Locale.US, "%.1f m", settings.depthMeters))
+        }
+    }
+
+    fun updateWaterTemperature(value: Float) {
+        _uiState.update {
+            val settings = it.settings.copy(waterTemperatureCelsius = value.toDouble())
+            it.copy(
+                settings = settings,
+                waterTemperatureText = String.format(Locale.US, "%.1f °C", settings.waterTemperatureCelsius)
+            )
+        }
+    }
+
+    fun updateCurrentDirection(value: Float) {
+        _uiState.update {
+            val settings = it.settings.copy(currentDirectionTrue = value.toDouble())
+            it.copy(
+                settings = settings,
+                currentDirectionText = String.format(Locale.US, "%.0f°T", settings.currentDirectionTrue)
+            )
+        }
+    }
+
+    fun updateCurrentSpeed(value: Float) {
+        _uiState.update {
+            val settings = it.settings.copy(currentSpeedKnots = value.toDouble())
+            it.copy(settings = settings, currentSpeedText = String.format(Locale.US, "%.1f kn", settings.currentSpeedKnots))
+        }
+    }
+
+    fun toggleVesselControls() {
+        _uiState.update { it.copy(vesselControlsExpanded = !it.vesselControlsExpanded) }
+    }
+
+    fun toggleWindControls() {
+        _uiState.update { it.copy(windControlsExpanded = !it.windControlsExpanded) }
+    }
+
+    fun toggleWaterControls() {
+        _uiState.update { it.copy(waterControlsExpanded = !it.waterControlsExpanded) }
+    }
+
+    fun toggleCurrentControls() {
+        _uiState.update { it.copy(currentControlsExpanded = !it.currentControlsExpanded) }
+    }
+
     fun toggleConnection() {
         val state = _uiState.value
         if (state.isConnectedOrConnecting) {
@@ -176,7 +240,12 @@ class MainViewModel : ViewModel() {
                 route = snapshot.route,
                 vesselTrack = snapshot.vesselTrack,
                 headingText = String.format(Locale.US, "Heading: %.1f°T", snapshot.headingTrue),
-                speedText = String.format(Locale.US, "Speed: %.1f kn", snapshot.speedKnots),
+                speedText = String.format(
+                    Locale.US,
+                    "Speed: %.1f kn STW | %.1f kn SOG",
+                    snapshot.speedThroughWaterKnots,
+                    snapshot.speedOverGroundKnots
+                ),
                 xteText = String.format(
                     Locale.US,
                     "XTE: %.3f NM %s",

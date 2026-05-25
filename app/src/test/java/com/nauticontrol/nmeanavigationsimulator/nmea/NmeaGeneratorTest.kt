@@ -15,7 +15,7 @@ class NmeaGeneratorTest {
     fun `generated sentences have valid checksums`() {
         val sentences = generator.generate(snapshot())
 
-        assertEquals(7, sentences.size)
+        assertEquals(15, sentences.size)
         sentences.forEach { sentence ->
             assertTrue(sentence.startsWith("\$"))
             val body = sentence.substringAfter("\$").substringBefore("*")
@@ -76,6 +76,29 @@ class NmeaGeneratorTest {
     }
 
     @Test
+    fun `marine sensor sentences include wind depth speed heading and temperature`() {
+        val sentences = generator.generate(snapshot())
+
+        assertTrue(sentences[7].startsWith("\$WIMWV,"))
+        assertTrue(sentences[7].contains(",12.0,N,A*"))
+        assertTrue(sentences[8].startsWith("\$WIMWD,240.0,T,240.0,M,12.0,N,6.2,M*"))
+        assertTrue(sentences[9].startsWith("\$SDDBD,26.2,f,8.0,M,4.4,F*"))
+        assertTrue(sentences[10].startsWith("\$SDDPT,8.0,0.0,8.0*"))
+        assertTrue(sentences[11].startsWith("\$IIVBW,12.50,0.00,A,13.10,0.00,A,"))
+        assertTrue(sentences[12].startsWith("\$HCHDT,91.2,T*"))
+        assertTrue(sentences[13].startsWith("\$HCHDG,91.2,0.0,E,0.0,E*"))
+        assertTrue(sentences[14].startsWith("\$YCMTW,14.0,C*"))
+    }
+
+    @Test
+    fun `rmc and vtg use course and speed over ground`() {
+        val sentences = generator.generate(snapshot())
+
+        assertTrue(sentences[2].contains(",13.10,094.0,"))
+        assertTrue(sentences[4].contains("\$GPVTG,094.0,T,,M,13.10,N,24.26,K,A*"))
+    }
+
+    @Test
     fun `coordinate rounding rolls minutes into degrees`() {
         val rmc = generator.generate(snapshot(position = GeoPoint(12.9999999, 179.9999999)))[2]
 
@@ -94,9 +117,18 @@ class NmeaGeneratorTest {
             headingTrue = 91.2,
             trackBearingTrue = 90.0,
             speedKnots = 12.5,
+            speedThroughWaterKnots = 12.5,
+            speedOverGroundKnots = 13.1,
+            courseOverGroundTrue = 94.0,
             crossTrackErrorNm = 0.15,
             bearingToWaypoint = 93.4,
             distanceToWaypointNm = distanceToWaypoint,
+            windDirectionTrue = 240.0,
+            windSpeedKnots = 12.0,
+            depthMeters = 8.0,
+            waterTemperatureCelsius = 14.0,
+            currentDirectionTrue = 90.0,
+            currentSpeedKnots = 0.6,
             previousWaypoint = Waypoint("WP00", GeoPoint(50.49, -1.30)),
             currentWaypoint = Waypoint(waypointName, GeoPoint(50.51, -1.20)),
             route = listOf(position, GeoPoint(50.51, -1.20)),

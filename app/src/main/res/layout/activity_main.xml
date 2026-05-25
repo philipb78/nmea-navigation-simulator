@@ -121,65 +121,245 @@
                     android:text="@string/simulator_controls"
                     android:textAppearance="?attr/textAppearanceTitleMedium" />
 
-                <TextView
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/vesselSectionButton"
+                    style="@style/Widget.Material3.Button.TextButton"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
-                    android:text="@string/speed_knots" />
+                    android:gravity="start|center_vertical"
+                    android:text="@string/vessel_controls" />
 
-                <com.google.android.material.slider.Slider
-                    android:id="@+id/speedSlider"
+                <LinearLayout
+                    android:id="@+id/vesselControlsLayout"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:valueFrom="1"
-                    android:valueTo="30"
-                    android:stepSize="0.5"
-                    android:value="8" />
+                    android:orientation="vertical">
 
-                <TextView
-                    android:id="@+id/speedConfigTextView"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content" />
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/speed_knots" />
 
-                <TextView
+                    <com.google.android.material.slider.Slider
+                        android:id="@+id/speedSlider"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:valueFrom="1"
+                        android:valueTo="30"
+                        android:stepSize="0.5"
+                        android:value="8" />
+
+                    <TextView
+                        android:id="@+id/speedConfigTextView"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:text="@string/update_rate_hz" />
+
+                    <com.google.android.material.slider.Slider
+                        android:id="@+id/updateRateSlider"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:valueFrom="1"
+                        android:valueTo="10"
+                        android:stepSize="1"
+                        android:value="2" />
+
+                    <TextView
+                        android:id="@+id/updateRateTextView"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:text="@string/course_deviation" />
+
+                    <com.google.android.material.slider.Slider
+                        android:id="@+id/deviationSlider"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:valueFrom="-0.5"
+                        android:valueTo="0.5"
+                        android:stepSize="0.01"
+                        android:value="0" />
+
+                    <TextView
+                        android:id="@+id/deviationTextView"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content" />
+                </LinearLayout>
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/windSectionButton"
+                    style="@style/Widget.Material3.Button.TextButton"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:text="@string/update_rate_hz" />
+                    android:layout_marginTop="8dp"
+                    android:gravity="start|center_vertical"
+                    android:text="@string/wind_controls" />
 
-                <com.google.android.material.slider.Slider
-                    android:id="@+id/updateRateSlider"
+                <LinearLayout
+                    android:id="@+id/windControlsLayout"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:valueFrom="1"
-                    android:valueTo="10"
-                    android:stepSize="1"
-                    android:value="2" />
+                    android:orientation="vertical">
 
-                <TextView
-                    android:id="@+id/updateRateTextView"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content" />
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/wind_direction_true" />
 
-                <TextView
+                    <com.google.android.material.slider.Slider
+                        android:id="@+id/windDirectionSlider"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:valueFrom="0"
+                        android:valueTo="359"
+                        android:stepSize="1"
+                        android:value="240" />
+
+                    <TextView
+                        android:id="@+id/windDirectionTextView"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:text="@string/wind_speed_knots" />
+
+                    <com.google.android.material.slider.Slider
+                        android:id="@+id/windSpeedSlider"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:valueFrom="0"
+                        android:valueTo="60"
+                        android:stepSize="0.5"
+                        android:value="12" />
+
+                    <TextView
+                        android:id="@+id/windSpeedTextView"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content" />
+                </LinearLayout>
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/waterSectionButton"
+                    style="@style/Widget.Material3.Button.TextButton"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:text="@string/course_deviation" />
+                    android:layout_marginTop="8dp"
+                    android:gravity="start|center_vertical"
+                    android:text="@string/water_controls" />
 
-                <com.google.android.material.slider.Slider
-                    android:id="@+id/deviationSlider"
+                <LinearLayout
+                    android:id="@+id/waterControlsLayout"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:valueFrom="-0.5"
-                    android:valueTo="0.5"
-                    android:stepSize="0.01"
-                    android:value="0" />
+                    android:orientation="vertical">
 
-                <TextView
-                    android:id="@+id/deviationTextView"
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/depth_meters" />
+
+                    <com.google.android.material.slider.Slider
+                        android:id="@+id/depthSlider"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:valueFrom="0"
+                        android:valueTo="100"
+                        android:stepSize="0.5"
+                        android:value="8" />
+
+                    <TextView
+                        android:id="@+id/depthTextView"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:text="@string/water_temperature_celsius" />
+
+                    <com.google.android.material.slider.Slider
+                        android:id="@+id/waterTemperatureSlider"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:valueFrom="-2"
+                        android:valueTo="35"
+                        android:stepSize="0.5"
+                        android:value="14" />
+
+                    <TextView
+                        android:id="@+id/waterTemperatureTextView"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content" />
+                </LinearLayout>
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/currentSectionButton"
+                    style="@style/Widget.Material3.Button.TextButton"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content" />
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:gravity="start|center_vertical"
+                    android:text="@string/current_controls" />
+
+                <LinearLayout
+                    android:id="@+id/currentControlsLayout"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/current_direction_true" />
+
+                    <com.google.android.material.slider.Slider
+                        android:id="@+id/currentDirectionSlider"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:valueFrom="0"
+                        android:valueTo="359"
+                        android:stepSize="1"
+                        android:value="90" />
+
+                    <TextView
+                        android:id="@+id/currentDirectionTextView"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:text="@string/current_speed_knots" />
+
+                    <com.google.android.material.slider.Slider
+                        android:id="@+id/currentSpeedSlider"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:valueFrom="0"
+                        android:valueTo="5"
+                        android:stepSize="0.1"
+                        android:value="0.5" />
+
+                    <TextView
+                        android:id="@+id/currentSpeedTextView"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content" />
+                </LinearLayout>
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 

@@ -24,7 +24,15 @@ class NmeaGenerator {
             gpGga(snapshot),
             gpVtg(snapshot),
             gpVhw(snapshot),
-            gpRmb(snapshot)
+            gpRmb(snapshot),
+            wiMwv(snapshot),
+            wiMwd(snapshot),
+            sdDbd(snapshot),
+            sdDpt(snapshot),
+            iiVbw(snapshot),
+            hcHdt(snapshot),
+            hcHdg(snapshot),
+            ycMtw(snapshot)
         )
     }
 
@@ -72,8 +80,8 @@ class NmeaGenerator {
             latitudeHemisphere(snapshot.position),
             longitude(snapshot.position),
             longitudeHemisphere(snapshot.position),
-            "%.2f".format(Locale.US, snapshot.speedKnots),
-            "%.1f".format(Locale.US, snapshot.headingTrue),
+            "%.2f".format(Locale.US, snapshot.speedOverGroundKnots),
+            "%.1f".format(Locale.US, snapshot.courseOverGroundTrue),
             utcDateFormat.format(instant),
             "",
             "",
@@ -103,12 +111,12 @@ class NmeaGenerator {
     }
 
     private fun gpVhw(snapshot: NavigationSnapshot): String {
-        val speedKmh = snapshot.speedKnots * 1.852
+        val speedKmh = snapshot.speedThroughWaterKnots * 1.852
         return sentence(
             "GPVHW",
             "%.1f".format(Locale.US, snapshot.headingTrue), "T",
             "", "M",
-            "%.2f".format(Locale.US, snapshot.speedKnots), "N",
+            "%.2f".format(Locale.US, snapshot.speedThroughWaterKnots), "N",
             "%.2f".format(Locale.US, speedKmh), "K"
         )
     }
@@ -120,7 +128,7 @@ class NmeaGenerator {
         val destination = safeField(snapshot.currentWaypoint.name).take(6)
         val range = "%.3f".format(Locale.US, snapshot.distanceToWaypointNm)
         val bearing = "%.1f".format(Locale.US, snapshot.bearingToWaypoint)
-        val closingVelocity = "%.1f".format(Locale.US, snapshot.speedKnots)
+        val closingVelocity = "%.1f".format(Locale.US, snapshot.speedOverGroundKnots)
         val arrivalStatus = if (snapshot.distanceToWaypointNm <= 0.02) "A" else "V"
         return sentence(
             "GPRMB",
@@ -138,19 +146,103 @@ class NmeaGenerator {
     }
 
     private fun gpVtg(snapshot: NavigationSnapshot): String {
-        val speedKmh = snapshot.speedKnots * 1.852
+        val speedKmh = snapshot.speedOverGroundKnots * 1.852
         return sentence(
             "GPVTG",
-            "%.1f".format(Locale.US, snapshot.headingTrue),
+            "%.1f".format(Locale.US, snapshot.courseOverGroundTrue),
             "T",
             "",
             "M",
-            "%.2f".format(Locale.US, snapshot.speedKnots),
+            "%.2f".format(Locale.US, snapshot.speedOverGroundKnots),
             "N",
             "%.2f".format(Locale.US, speedKmh),
             "K",
             "A"
         )
+    }
+
+    private fun wiMwv(snapshot: NavigationSnapshot): String {
+        val relativeWindAngle = GeoMath.normalizeDegrees(snapshot.windDirectionTrue - snapshot.headingTrue)
+        return sentence(
+            "WIMWV",
+            "%.1f".format(Locale.US, relativeWindAngle),
+            "R",
+            "%.1f".format(Locale.US, snapshot.windSpeedKnots),
+            "N",
+            "A"
+        )
+    }
+
+    private fun wiMwd(snapshot: NavigationSnapshot): String {
+        val speedMetersPerSecond = snapshot.windSpeedKnots * 0.514444
+        return sentence(
+            "WIMWD",
+            "%.1f".format(Locale.US, snapshot.windDirectionTrue),
+            "T",
+            "%.1f".format(Locale.US, snapshot.windDirectionTrue),
+            "M",
+            "%.1f".format(Locale.US, snapshot.windSpeedKnots),
+            "N",
+            "%.1f".format(Locale.US, speedMetersPerSecond),
+            "M"
+        )
+    }
+
+    private fun sdDbd(snapshot: NavigationSnapshot): String {
+        val depthFeet = snapshot.depthMeters * 3.28084
+        val depthFathoms = snapshot.depthMeters * 0.546807
+        return sentence(
+            "SDDBD",
+            "%.1f".format(Locale.US, depthFeet), "f",
+            "%.1f".format(Locale.US, snapshot.depthMeters), "M",
+            "%.1f".format(Locale.US, depthFathoms), "F"
+        )
+    }
+
+    private fun sdDpt(snapshot: NavigationSnapshot): String {
+        return sentence(
+            "SDDPT",
+            "%.1f".format(Locale.US, snapshot.depthMeters),
+            "0.0",
+            "%.1f".format(Locale.US, snapshot.depthMeters)
+        )
+    }
+
+    private fun iiVbw(snapshot: NavigationSnapshot): String {
+        return sentence(
+            "IIVBW",
+            "%.2f".format(Locale.US, snapshot.speedThroughWaterKnots),
+            "0.00",
+            "A",
+            "%.2f".format(Locale.US, snapshot.speedOverGroundKnots),
+            "0.00",
+            "A",
+            "",
+            "",
+            "",
+            "",
+            "",
+            ""
+        )
+    }
+
+    private fun hcHdt(snapshot: NavigationSnapshot): String {
+        return sentence("HCHDT", "%.1f".format(Locale.US, snapshot.headingTrue), "T")
+    }
+
+    private fun hcHdg(snapshot: NavigationSnapshot): String {
+        return sentence(
+            "HCHDG",
+            "%.1f".format(Locale.US, snapshot.headingTrue),
+            "0.0",
+            "E",
+            "0.0",
+            "E"
+        )
+    }
+
+    private fun ycMtw(snapshot: NavigationSnapshot): String {
+        return sentence("YCMTW", "%.1f".format(Locale.US, snapshot.waterTemperatureCelsius), "C")
     }
 
     private fun latitude(point: GeoPoint): String {

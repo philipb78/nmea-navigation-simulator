@@ -1,6 +1,7 @@
 package com.nauticontrol.nmeanavigationsimulator.ui
 
 import android.os.Bundle
+import android.view.View
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
@@ -35,14 +36,30 @@ class MainActivity : AppCompatActivity() {
         binding.speedConfigTextView.text = viewModel.uiState.value.speedConfigText
         binding.updateRateTextView.text = viewModel.uiState.value.updateRateText
         binding.deviationTextView.text = viewModel.uiState.value.deviationText
+        binding.windDirectionTextView.text = viewModel.uiState.value.windDirectionText
+        binding.windSpeedTextView.text = viewModel.uiState.value.windSpeedText
+        binding.depthTextView.text = viewModel.uiState.value.depthText
+        binding.waterTemperatureTextView.text = viewModel.uiState.value.waterTemperatureText
+        binding.currentDirectionTextView.text = viewModel.uiState.value.currentDirectionText
+        binding.currentSpeedTextView.text = viewModel.uiState.value.currentSpeedText
         binding.speedSlider.value = viewModel.uiState.value.settings.speedKnots.toFloat()
         binding.updateRateSlider.value = viewModel.uiState.value.settings.updateRateHz.toFloat()
         binding.deviationSlider.value = viewModel.uiState.value.settings.injectedDeviationNm.toFloat()
+        binding.windDirectionSlider.value = viewModel.uiState.value.settings.windDirectionTrue.toFloat()
+        binding.windSpeedSlider.value = viewModel.uiState.value.settings.windSpeedKnots.toFloat()
+        binding.depthSlider.value = viewModel.uiState.value.settings.depthMeters.toFloat()
+        binding.waterTemperatureSlider.value = viewModel.uiState.value.settings.waterTemperatureCelsius.toFloat()
+        binding.currentDirectionSlider.value = viewModel.uiState.value.settings.currentDirectionTrue.toFloat()
+        binding.currentSpeedSlider.value = viewModel.uiState.value.settings.currentSpeedKnots.toFloat()
 
         binding.ipEditText.doAfterTextChanged { viewModel.updateIpAddress(it?.toString().orEmpty()) }
         binding.portEditText.doAfterTextChanged { viewModel.updatePort(it?.toString().orEmpty()) }
         binding.connectButton.setOnClickListener { viewModel.toggleConnection() }
         binding.simulationButton.setOnClickListener { viewModel.toggleSimulation() }
+        binding.vesselSectionButton.setOnClickListener { viewModel.toggleVesselControls() }
+        binding.windSectionButton.setOnClickListener { viewModel.toggleWindControls() }
+        binding.waterSectionButton.setOnClickListener { viewModel.toggleWaterControls() }
+        binding.currentSectionButton.setOnClickListener { viewModel.toggleCurrentControls() }
         binding.speedSlider.addOnChangeListener { _, value, fromUser ->
             if (fromUser) viewModel.updateSpeed(value)
         }
@@ -51,6 +68,24 @@ class MainActivity : AppCompatActivity() {
         }
         binding.deviationSlider.addOnChangeListener { _, value, fromUser ->
             if (fromUser) viewModel.updateDeviation(value)
+        }
+        binding.windDirectionSlider.addOnChangeListener { _, value, fromUser ->
+            if (fromUser) viewModel.updateWindDirection(value)
+        }
+        binding.windSpeedSlider.addOnChangeListener { _, value, fromUser ->
+            if (fromUser) viewModel.updateWindSpeed(value)
+        }
+        binding.depthSlider.addOnChangeListener { _, value, fromUser ->
+            if (fromUser) viewModel.updateDepth(value)
+        }
+        binding.waterTemperatureSlider.addOnChangeListener { _, value, fromUser ->
+            if (fromUser) viewModel.updateWaterTemperature(value)
+        }
+        binding.currentDirectionSlider.addOnChangeListener { _, value, fromUser ->
+            if (fromUser) viewModel.updateCurrentDirection(value)
+        }
+        binding.currentSpeedSlider.addOnChangeListener { _, value, fromUser ->
+            if (fromUser) viewModel.updateCurrentSpeed(value)
         }
     }
 
@@ -89,6 +124,24 @@ class MainActivity : AppCompatActivity() {
                     binding.speedConfigTextView.text = state.speedConfigText
                     binding.updateRateTextView.text = state.updateRateText
                     binding.deviationTextView.text = state.deviationText
+                    binding.windDirectionTextView.text = state.windDirectionText
+                    binding.windSpeedTextView.text = state.windSpeedText
+                    binding.depthTextView.text = state.depthText
+                    binding.waterTemperatureTextView.text = state.waterTemperatureText
+                    binding.currentDirectionTextView.text = state.currentDirectionText
+                    binding.currentSpeedTextView.text = state.currentSpeedText
+                    binding.vesselControlsLayout.visibility = state.vesselControlsExpanded.toVisibility()
+                    binding.windControlsLayout.visibility = state.windControlsExpanded.toVisibility()
+                    binding.waterControlsLayout.visibility = state.waterControlsExpanded.toVisibility()
+                    binding.currentControlsLayout.visibility = state.currentControlsExpanded.toVisibility()
+                    binding.vesselSectionButton.text =
+                        sectionTitle(getString(R.string.vessel_controls), state.vesselControlsExpanded)
+                    binding.windSectionButton.text =
+                        sectionTitle(getString(R.string.wind_controls), state.windControlsExpanded)
+                    binding.waterSectionButton.text =
+                        sectionTitle(getString(R.string.water_controls), state.waterControlsExpanded)
+                    binding.currentSectionButton.text =
+                        sectionTitle(getString(R.string.current_controls), state.currentControlsExpanded)
                     binding.logTextView.text = state.logLines.joinToString("\n")
                     binding.trackView.update(
                         route = state.route,
@@ -105,4 +158,11 @@ class MainActivity : AppCompatActivity() {
 private fun TextInputLayout.renderError(errorMessage: String?) {
     error = errorMessage
     isErrorEnabled = !errorMessage.isNullOrEmpty()
+}
+
+private fun Boolean.toVisibility(): Int = if (this) View.VISIBLE else View.GONE
+
+private fun sectionTitle(title: String, expanded: Boolean): String {
+    val marker = if (expanded) "v" else ">"
+    return "$marker $title"
 }

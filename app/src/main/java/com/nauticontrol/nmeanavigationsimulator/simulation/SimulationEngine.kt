@@ -5,6 +5,8 @@ import com.nauticontrol.nmeanavigationsimulator.model.NavigationSnapshot
 import com.nauticontrol.nmeanavigationsimulator.model.SimulatorSettings
 import com.nauticontrol.nmeanavigationsimulator.model.Waypoint
 import kotlin.math.absoluteValue
+import kotlin.math.atan2
+import kotlin.math.hypot
 
 class SimulationEngine(
     private val routeWaypoints: List<Waypoint> = defaultWaypoints()
@@ -54,8 +56,22 @@ class SimulationEngine(
             .coerceIn(-maxHeadingStep, maxHeadingStep)
         headingTrue = GeoMath.normalizeDegrees(headingTrue + turnStep)
 
-        val distancePerTick = sanitizedSettings.speedKnots * deltaSeconds / 3600.0
-        vesselPosition = GeoMath.move(vesselPosition, headingTrue, distancePerTick)
+        val waterEastKnots = eastComponent(sanitizedSettings.speedKnots, headingTrue)
+        val waterNorthKnots = northComponent(sanitizedSettings.speedKnots, headingTrue)
+        val currentEastKnots = eastComponent(
+            sanitizedSettings.currentSpeedKnots,
+            sanitizedSettings.currentDirectionTrue
+        )
+        val currentNorthKnots = northComponent(
+            sanitizedSettings.currentSpeedKnots,
+            sanitizedSettings.currentDirectionTrue
+        )
+        val sogEastKnots = waterEastKnots + currentEastKnots
+        val sogNorthKnots = waterNorthKnots + currentNorthKnots
+        val speedOverGroundKnots = hypot(sogEastKnots, sogNorthKnots)
+        val courseOverGroundTrue = bearingFromComponents(sogEastKnots, sogNorthKnots, headingTrue)
+        val distancePerTick = speedOverGroundKnots * deltaSeconds / 3600.0
+        vesselPosition = GeoMath.move(vesselPosition, courseOverGroundTrue, distancePerTick)
 
         val disturbanceError = sanitizedSettings.injectedDeviationNm - signedXte
         if (disturbanceError.absoluteValue > 0.0001) {
@@ -87,10 +103,19 @@ class SimulationEngine(
             position = vesselPosition,
             headingTrue = headingTrue,
             trackBearingTrue = trackBearing,
-            speedKnots = sanitizedSettings.speedKnots,
+            speedKnots = speedOverGroundKnots,
+            speedThroughWaterKnots = sanitizedSettings.speedKnots,
+            speedOverGroundKnots = speedOverGroundKnots,
+            courseOverGroundTrue = courseOverGroundTrue,
             crossTrackErrorNm = signedXte,
             bearingToWaypoint = GeoMath.bearingDegrees(vesselPosition, activeWaypoint.position),
             distanceToWaypointNm = GeoMath.distanceNm(vesselPosition, activeWaypoint.position),
+            windDirectionTrue = sanitizedSettings.windDirectionTrue,
+            windSpeedKnots = sanitizedSettings.windSpeedKnots,
+            depthMeters = sanitizedSettings.depthMeters,
+            waterTemperatureCelsius = sanitizedSettings.waterTemperatureCelsius,
+            currentDirectionTrue = sanitizedSettings.currentDirectionTrue,
+            currentSpeedKnots = sanitizedSettings.currentSpeedKnots,
             previousWaypoint = routeWaypoints[routeIndex - 1],
             currentWaypoint = activeWaypoint,
             route = currentRoute(),
@@ -114,8 +139,27 @@ class SimulationEngine(
         return copy(
             speedKnots = speedKnots.coerceAtLeast(0.0),
             updateRateHz = updateRateHz.coerceAtLeast(1),
-            injectedDeviationNm = injectedDeviationNm.coerceIn(-5.0, 5.0)
+            injectedDeviationNm = injectedDeviationNm.coerceIn(-5.0, 5.0),
+            windDirectionTrue = GeoMath.normalizeDegrees(windDirectionTrue),
+            windSpeedKnots = windSpeedKnots.coerceIn(0.0, 80.0),
+            depthMeters = depthMeters.coerceIn(0.0, 200.0),
+            waterTemperatureCelsius = waterTemperatureCelsius.coerceIn(-2.0, 40.0),
+            currentDirectionTrue = GeoMath.normalizeDegrees(currentDirectionTrue),
+            currentSpeedKnots = currentSpeedKnots.coerceIn(0.0, 10.0)
         )
+    }
+
+    private fun eastComponent(speedKnots: Double, bearingTrue: Double): Double {
+        return speedKnots * kotlin.math.sin(Math.toRadians(bearingTrue))
+    }
+
+    private fun northComponent(speedKnots: Double, bearingTrue: Double): Double {
+        return speedKnots * kotlin.math.cos(Math.toRadians(bearingTrue))
+    }
+
+    private fun bearingFromComponents(eastKnots: Double, northKnots: Double, fallback: Double): Double {
+        if (hypot(eastKnots, northKnots) < 0.0001) return fallback
+        return GeoMath.normalizeDegrees(Math.toDegrees(atan2(eastKnots, northKnots)))
     }
 
     companion object {
