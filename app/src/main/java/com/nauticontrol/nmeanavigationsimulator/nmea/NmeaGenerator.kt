@@ -179,7 +179,7 @@ class NmeaGenerator {
             "WIMWD",
             "%.1f".format(Locale.US, snapshot.windDirectionTrue),
             "T",
-            "%.1f".format(Locale.US, snapshot.windDirectionTrue),
+            "",
             "M",
             "%.1f".format(Locale.US, snapshot.windSpeedKnots),
             "N",
@@ -204,7 +204,7 @@ class NmeaGenerator {
             "SDDPT",
             "%.1f".format(Locale.US, snapshot.depthMeters),
             "0.0",
-            "%.1f".format(Locale.US, snapshot.depthMeters)
+            ""
         )
     }
 
@@ -220,8 +220,6 @@ class NmeaGenerator {
             "",
             "",
             "",
-            "",
-            "",
             ""
         )
     }
@@ -234,10 +232,10 @@ class NmeaGenerator {
         return sentence(
             "HCHDG",
             "%.1f".format(Locale.US, snapshot.headingTrue),
-            "0.0",
-            "E",
-            "0.0",
-            "E"
+            "",
+            "",
+            "",
+            ""
         )
     }
 

@@ -81,13 +81,40 @@ class NmeaGeneratorTest {
 
         assertTrue(sentences[7].startsWith("\$WIMWV,"))
         assertTrue(sentences[7].contains(",12.0,N,A*"))
-        assertTrue(sentences[8].startsWith("\$WIMWD,240.0,T,240.0,M,12.0,N,6.2,M*"))
+        assertEquals(listOf("240.0", "T", "", "M", "12.0", "N", "6.2", "M"), parsedFields(sentences[8]))
         assertTrue(sentences[9].startsWith("\$SDDBD,26.2,f,8.0,M,4.4,F*"))
-        assertTrue(sentences[10].startsWith("\$SDDPT,8.0,0.0,8.0*"))
-        assertTrue(sentences[11].startsWith("\$IIVBW,12.50,0.00,A,13.10,0.00,A,"))
+        assertEquals(listOf("8.0", "0.0", ""), parsedFields(sentences[10]))
+        assertEquals(listOf("12.50", "0.00", "A", "13.10", "0.00", "A", "", "", "", ""), parsedFields(sentences[11]))
         assertTrue(sentences[12].startsWith("\$HCHDT,91.2,T*"))
-        assertTrue(sentences[13].startsWith("\$HCHDG,91.2,0.0,E,0.0,E*"))
+        assertEquals(listOf("91.2", "", "", "", ""), parsedFields(sentences[13]))
         assertTrue(sentences[14].startsWith("\$YCMTW,14.0,C*"))
+    }
+
+    @Test
+    fun `generated sentences use expected field counts`() {
+        val sentences = generator.generate(snapshot())
+        val expectedFieldCounts = mapOf(
+            "GPAPB" to 15,
+            "GPXTE" to 5,
+            "GPRMC" to 12,
+            "GPGGA" to 14,
+            "GPVTG" to 9,
+            "GPVHW" to 8,
+            "GPRMB" to 13,
+            "WIMWV" to 5,
+            "WIMWD" to 8,
+            "SDDBD" to 6,
+            "SDDPT" to 3,
+            "IIVBW" to 10,
+            "HCHDT" to 2,
+            "HCHDG" to 5,
+            "YCMTW" to 2
+        )
+
+        sentences.forEach { sentence ->
+            val type = parsedType(sentence)
+            assertEquals("Unexpected field count for $type", expectedFieldCounts.getValue(type), parsedFields(sentence).size)
+        }
     }
 
     @Test
@@ -135,5 +162,14 @@ class NmeaGeneratorTest {
             vesselTrack = listOf(position),
             timestampMillis = 1_720_000_000_000L
         )
+    }
+
+    private fun parsedType(sentence: String): String {
+        return sentence.substringAfter("\$").substringBefore("*").substringBefore(",")
+    }
+
+    private fun parsedFields(sentence: String): List<String> {
+        val body = sentence.substringAfter("\$").substringBefore("*")
+        return body.substringAfter(",").split(",")
     }
 }
