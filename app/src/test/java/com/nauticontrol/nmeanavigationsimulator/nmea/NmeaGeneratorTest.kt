@@ -91,6 +91,14 @@ class NmeaGeneratorTest {
     }
 
     @Test
+    fun `depth sentences use snapshot depth in meters feet and fathoms`() {
+        val sentences = generator.generate(snapshot(depthMeters = 12.3))
+
+        assertTrue(sentences[9].startsWith("\$SDDBD,40.4,f,12.3,M,6.7,F*"))
+        assertEquals(listOf("12.3", "0.0", ""), parsedFields(sentences[10]))
+    }
+
+    @Test
     fun `generated sentences use expected field counts`() {
         val sentences = generator.generate(snapshot())
         val expectedFieldCounts = mapOf(
@@ -137,7 +145,8 @@ class NmeaGeneratorTest {
     private fun snapshot(
         position: GeoPoint = GeoPoint(50.5, -1.25),
         waypointName: String = "WP01",
-        distanceToWaypoint: Double = 1.2
+        distanceToWaypoint: Double = 1.2,
+        depthMeters: Double = 8.0
     ): NavigationSnapshot {
         return NavigationSnapshot(
             position = position,
@@ -152,7 +161,7 @@ class NmeaGeneratorTest {
             distanceToWaypointNm = distanceToWaypoint,
             windDirectionTrue = 240.0,
             windSpeedKnots = 12.0,
-            depthMeters = 8.0,
+            depthMeters = depthMeters,
             waterTemperatureCelsius = 14.0,
             currentDirectionTrue = 90.0,
             currentSpeedKnots = 0.6,

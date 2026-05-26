@@ -32,6 +32,15 @@ Android app for testing NMEA → N2K / SeaTalk conversion firmware. Simulates ve
 | `$HCHDG` | Heading, deviation, and variation |
 | `$YCMTW` | Water temperature |
 
+### Depth Output Notes
+
+Depth is a manual simulator setting, so it stays static until the depth slider changes. The value flows from `SimulatorSettings.depthMeters` into `NavigationSnapshot.depthMeters` and is emitted on every update as:
+
+- `$SDDBD,<feet>,f,<meters>,M,<fathoms>,F*hh`
+- `$SDDPT,<meters>,0.0,*hh`
+
+The TCP client writes the full generated list on each update, including both depth sentences. Firmware should accept the `SD` talker, parse meters from field 3 of `DBD` or field 1 of `DPT`, and verify or ignore the standard NMEA checksum according to its existing parser policy.
+
 ## Simulator Controls
 
 - **Speed (knots)** — 1–30 knots STW, adjustable in 0.5 knot steps

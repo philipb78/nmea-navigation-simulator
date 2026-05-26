@@ -164,10 +164,11 @@ class SimulationEngine(
 
     companion object {
         private fun defaultWaypoints(): List<Waypoint> = listOf(
-            Waypoint("WP01", GeoPoint(50.7050, -1.2980)),
-            Waypoint("WP02", GeoPoint(50.7090, -1.2860)),
-            Waypoint("WP03", GeoPoint(50.7145, -1.2725)),
-            Waypoint("WP04", GeoPoint(50.7190, -1.2580))
+            Waypoint("OXFORD", GeoPoint(54.6190, -6.2480)),
+            Waypoint("KINNEG", GeoPoint(54.5800, -6.3500)),
+            Waypoint("MIDLOU", GeoPoint(54.6100, -6.4300)),
+            Waypoint("TOOME", GeoPoint(54.6500, -6.5000)),
+            Waypoint("PORTGL", GeoPoint(54.7000, -6.5200))
         )
     }
 }
