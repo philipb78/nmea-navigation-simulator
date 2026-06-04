@@ -13,10 +13,10 @@ import com.nauticontrol.nmeanavigationsimulator.simulation.SimulationEngine
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.Locale
@@ -67,13 +67,13 @@ class MainViewModel : ViewModel() {
         }
     }
 
-    fun updateSpeed(value: Float) {
+    fun updateSpeedRange(min: Float, max: Float) {
         _uiState.update {
-            val settings = it.settings.copy(speedKnots = value.toDouble())
-            it.copy(
-                settings = settings,
-                speedConfigText = String.format(Locale.US, "%.1f kn", settings.speedKnots)
+            val settings = it.settings.copy(
+                speedKnotsMin = min.toDouble(),
+                speedKnotsMax = max.toDouble()
             )
+            it.copy(settings = settings, speedConfigText = formatSpeedRange(settings))
         }
     }
 
@@ -97,51 +97,63 @@ class MainViewModel : ViewModel() {
         }
     }
 
-    fun updateWindDirection(value: Float) {
+    fun updateWindDirectionRange(min: Float, max: Float) {
         _uiState.update {
-            val settings = it.settings.copy(windDirectionTrue = value.toDouble())
-            it.copy(settings = settings, windDirectionText = String.format(Locale.US, "%.0f°T", settings.windDirectionTrue))
-        }
-    }
-
-    fun updateWindSpeed(value: Float) {
-        _uiState.update {
-            val settings = it.settings.copy(windSpeedKnots = value.toDouble())
-            it.copy(settings = settings, windSpeedText = String.format(Locale.US, "%.1f kn", settings.windSpeedKnots))
-        }
-    }
-
-    fun updateDepth(value: Float) {
-        _uiState.update {
-            val settings = it.settings.copy(depthMeters = value.toDouble())
-            it.copy(settings = settings, depthText = String.format(Locale.US, "%.1f m", settings.depthMeters))
-        }
-    }
-
-    fun updateWaterTemperature(value: Float) {
-        _uiState.update {
-            val settings = it.settings.copy(waterTemperatureCelsius = value.toDouble())
-            it.copy(
-                settings = settings,
-                waterTemperatureText = String.format(Locale.US, "%.1f °C", settings.waterTemperatureCelsius)
+            val settings = it.settings.copy(
+                windDirectionTrueMin = min.toDouble(),
+                windDirectionTrueMax = max.toDouble()
             )
+            it.copy(settings = settings, windDirectionText = formatWindDirectionRange(settings))
         }
     }
 
-    fun updateCurrentDirection(value: Float) {
+    fun updateWindSpeedRange(min: Float, max: Float) {
         _uiState.update {
-            val settings = it.settings.copy(currentDirectionTrue = value.toDouble())
-            it.copy(
-                settings = settings,
-                currentDirectionText = String.format(Locale.US, "%.0f°T", settings.currentDirectionTrue)
+            val settings = it.settings.copy(
+                windSpeedKnotsMin = min.toDouble(),
+                windSpeedKnotsMax = max.toDouble()
             )
+            it.copy(settings = settings, windSpeedText = formatWindSpeedRange(settings))
         }
     }
 
-    fun updateCurrentSpeed(value: Float) {
+    fun updateDepthRange(min: Float, max: Float) {
         _uiState.update {
-            val settings = it.settings.copy(currentSpeedKnots = value.toDouble())
-            it.copy(settings = settings, currentSpeedText = String.format(Locale.US, "%.1f kn", settings.currentSpeedKnots))
+            val settings = it.settings.copy(
+                depthMetersMin = min.toDouble(),
+                depthMetersMax = max.toDouble()
+            )
+            it.copy(settings = settings, depthText = formatDepthRange(settings))
+        }
+    }
+
+    fun updateWaterTemperatureRange(min: Float, max: Float) {
+        _uiState.update {
+            val settings = it.settings.copy(
+                waterTemperatureCelsiusMin = min.toDouble(),
+                waterTemperatureCelsiusMax = max.toDouble()
+            )
+            it.copy(settings = settings, waterTemperatureText = formatWaterTemperatureRange(settings))
+        }
+    }
+
+    fun updateCurrentDirectionRange(min: Float, max: Float) {
+        _uiState.update {
+            val settings = it.settings.copy(
+                currentDirectionTrueMin = min.toDouble(),
+                currentDirectionTrueMax = max.toDouble()
+            )
+            it.copy(settings = settings, currentDirectionText = formatCurrentDirectionRange(settings))
+        }
+    }
+
+    fun updateCurrentSpeedRange(min: Float, max: Float) {
+        _uiState.update {
+            val settings = it.settings.copy(
+                currentSpeedKnotsMin = min.toDouble(),
+                currentSpeedKnotsMax = max.toDouble()
+            )
+            it.copy(settings = settings, currentSpeedText = formatCurrentSpeedRange(settings))
         }
     }
 
@@ -194,7 +206,9 @@ class MainViewModel : ViewModel() {
 
     private fun startSimulation() {
         simulationJob?.cancel()
-        simulationEngine.reset()
+        val settings = _uiState.value.settings
+        val startAt = System.currentTimeMillis()
+        simulationEngine.reset(settings, startAt)
         _uiState.update {
             it.copy(
                 isSimulating = true,
@@ -205,15 +219,15 @@ class MainViewModel : ViewModel() {
         }
         appendLog("Simulation started")
         simulationJob = viewModelScope.launch {
-            var lastTickAt = System.currentTimeMillis()
+            var lastTickAt = startAt
             while (true) {
                 ensureActive()
-                val settings = _uiState.value.settings
+                val currentSettings = _uiState.value.settings
                 val now = System.currentTimeMillis()
-                val snapshot = simulationEngine.tick(settings, now, lastTickAt)
+                val snapshot = simulationEngine.tick(currentSettings, now, lastTickAt)
                 lastTickAt = now
-                publishSnapshot(snapshot, settings)
-                delay((1000L / settings.updateRateHz.coerceAtLeast(1)).coerceAtLeast(100L))
+                publishSnapshot(snapshot, currentSettings)
+                delay((1000L / currentSettings.updateRateHz.coerceAtLeast(1)).coerceAtLeast(100L))
             }
         }
     }
@@ -224,7 +238,14 @@ class MainViewModel : ViewModel() {
         _uiState.update {
             it.copy(
                 isSimulating = false,
-                statusText = buildStatusText(it.connectionState, false)
+                statusText = buildStatusText(it.connectionState, false),
+                speedConfigText = formatSpeedRange(it.settings),
+                windDirectionText = formatWindDirectionRange(it.settings),
+                windSpeedText = formatWindSpeedRange(it.settings),
+                depthText = formatDepthRange(it.settings),
+                waterTemperatureText = formatWaterTemperatureRange(it.settings),
+                currentDirectionText = formatCurrentDirectionRange(it.settings),
+                currentSpeedText = formatCurrentSpeedRange(it.settings)
             )
         }
         appendLog("Simulation stopped")
@@ -259,7 +280,14 @@ class MainViewModel : ViewModel() {
                     snapshot.bearingToWaypoint,
                     snapshot.distanceToWaypointNm,
                     settings.updateRateHz
-                )
+                ),
+                speedConfigText = formatSpeedLive(snapshot, settings),
+                windDirectionText = formatWindDirectionLive(snapshot, settings),
+                windSpeedText = formatWindSpeedLive(snapshot, settings),
+                depthText = formatDepthLive(snapshot, settings),
+                waterTemperatureText = formatWaterTemperatureLive(snapshot, settings),
+                currentDirectionText = formatCurrentDirectionLive(snapshot, settings),
+                currentSpeedText = formatCurrentSpeedLive(snapshot, settings)
             )
         }
     }
@@ -307,4 +335,88 @@ class MainViewModel : ViewModel() {
             else -> null
         }
     }
+
+    private fun formatSpeedRange(settings: SimulatorSettings): String =
+        String.format(Locale.US, "%.1f–%.1f kn", settings.speedKnotsMin, settings.speedKnotsMax)
+
+    private fun formatSpeedLive(snapshot: NavigationSnapshot, settings: SimulatorSettings): String =
+        String.format(
+            Locale.US,
+            "%.1f kn (%.1f–%.1f)",
+            snapshot.speedThroughWaterKnots,
+            settings.speedKnotsMin,
+            settings.speedKnotsMax
+        )
+
+    private fun formatWindDirectionRange(settings: SimulatorSettings): String =
+        String.format(Locale.US, "%.0f–%.0f°T", settings.windDirectionTrueMin, settings.windDirectionTrueMax)
+
+    private fun formatWindDirectionLive(snapshot: NavigationSnapshot, settings: SimulatorSettings): String =
+        String.format(
+            Locale.US,
+            "%.0f°T (%.0f–%.0f)",
+            snapshot.windDirectionTrue,
+            settings.windDirectionTrueMin,
+            settings.windDirectionTrueMax
+        )
+
+    private fun formatWindSpeedRange(settings: SimulatorSettings): String =
+        String.format(Locale.US, "%.1f–%.1f kn", settings.windSpeedKnotsMin, settings.windSpeedKnotsMax)
+
+    private fun formatWindSpeedLive(snapshot: NavigationSnapshot, settings: SimulatorSettings): String =
+        String.format(
+            Locale.US,
+            "%.1f kn (%.1f–%.1f)",
+            snapshot.windSpeedKnots,
+            settings.windSpeedKnotsMin,
+            settings.windSpeedKnotsMax
+        )
+
+    private fun formatDepthRange(settings: SimulatorSettings): String =
+        String.format(Locale.US, "%.1f–%.1f m", settings.depthMetersMin, settings.depthMetersMax)
+
+    private fun formatDepthLive(snapshot: NavigationSnapshot, settings: SimulatorSettings): String =
+        String.format(
+            Locale.US,
+            "%.1f m (%.1f–%.1f)",
+            snapshot.depthMeters,
+            settings.depthMetersMin,
+            settings.depthMetersMax
+        )
+
+    private fun formatWaterTemperatureRange(settings: SimulatorSettings): String =
+        String.format(Locale.US, "%.1f–%.1f °C", settings.waterTemperatureCelsiusMin, settings.waterTemperatureCelsiusMax)
+
+    private fun formatWaterTemperatureLive(snapshot: NavigationSnapshot, settings: SimulatorSettings): String =
+        String.format(
+            Locale.US,
+            "%.1f °C (%.1f–%.1f)",
+            snapshot.waterTemperatureCelsius,
+            settings.waterTemperatureCelsiusMin,
+            settings.waterTemperatureCelsiusMax
+        )
+
+    private fun formatCurrentDirectionRange(settings: SimulatorSettings): String =
+        String.format(Locale.US, "%.0f–%.0f°T", settings.currentDirectionTrueMin, settings.currentDirectionTrueMax)
+
+    private fun formatCurrentDirectionLive(snapshot: NavigationSnapshot, settings: SimulatorSettings): String =
+        String.format(
+            Locale.US,
+            "%.0f°T (%.0f–%.0f)",
+            snapshot.currentDirectionTrue,
+            settings.currentDirectionTrueMin,
+            settings.currentDirectionTrueMax
+        )
+
+    private fun formatCurrentSpeedRange(settings: SimulatorSettings): String =
+        String.format(Locale.US, "%.1f–%.1f kn", settings.currentSpeedKnotsMin, settings.currentSpeedKnotsMax)
+
+    private fun formatCurrentSpeedLive(snapshot: NavigationSnapshot, settings: SimulatorSettings): String =
+        String.format(
+            Locale.US,
+            "%.1f kn (%.1f–%.1f)",
+            snapshot.currentSpeedKnots,
+            settings.currentSpeedKnotsMin,
+            settings.currentSpeedKnotsMax
+        )
 }

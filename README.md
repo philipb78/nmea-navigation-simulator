@@ -7,7 +7,7 @@ Android app for testing NMEA → N2K / SeaTalk conversion firmware. Simulates ve
 - **TCP Client** — Connect to any IP:Port (default: 192.168.1.100:10110)
 - **NMEA Sentences** — Generates navigation and marine sensor sentences with proper checksums
 - **Navigation Simulation** — Waypoint tracking with autopilot corrections and current-adjusted SOG
-- **Environmental Simulation** — Wind, depth, water temperature, and current controls
+- **Environmental Simulation** — Wind, depth, water temperature, and current range controls with smooth live variation
 - **Course Deviation** — Inject off-track scenarios to test autopilot response
 - **Track Visualization** — Real-time canvas showing vessel position, heading, and track
 - **Material Design 3** — Clean, modern UI with collapsible slider sections
@@ -34,7 +34,7 @@ Android app for testing NMEA → N2K / SeaTalk conversion firmware. Simulates ve
 
 ### Depth Output Notes
 
-Depth is a manual simulator setting, so it stays static until the depth slider changes. The value flows from `SimulatorSettings.depthMeters` into `NavigationSnapshot.depthMeters` and is emitted on every update as:
+Depth (and other environmental values) use min/max range sliders. During simulation, `SimulationEngine` smoothly varies each value within its range and emits the instantaneous reading on every update. Depth flows into `NavigationSnapshot.depthMeters` as:
 
 - `$SDDBD,<feet>,f,<meters>,M,<fathoms>,F*hh`
 - `$SDDPT,<meters>,0.0,*hh`
@@ -43,12 +43,14 @@ The TCP client writes the full generated list on each update, including both dep
 
 ## Simulator Controls
 
-- **Speed (knots)** — 1–30 knots STW, adjustable in 0.5 knot steps
+- **Speed range (knots)** — 1–30 knots STW; varies smoothly within the range during simulation
 - **Update Rate (Hz)** — 1–10 updates per second
 - **Course Deviation (NM)** — Inject ±0.5 NM deviation to test autopilot corrections
-- **Wind** — Direction and speed for MWV/MWD output
-- **Depth and Temperature** — Depth and water temperature for DBD/DPT/MTW output
-- **Current** — Direction and speed used to derive COG/SOG from vessel STW
+- **Wind** — Direction and speed ranges for MWV/MWD output (relative angle follows heading)
+- **Depth and Temperature** — Ranges for DBD/DPT/MTW output; values drift slowly like real sensors
+- **Current** — Direction and speed ranges used to derive COG/SOG from vessel STW
+
+Set min and max equal on any range slider to hold that value fixed.
 
 ## Build & Run
 

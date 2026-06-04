@@ -7,6 +7,7 @@ import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.widget.doAfterTextChanged
+import com.google.android.material.slider.RangeSlider
 import com.google.android.material.textfield.TextInputLayout
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
@@ -33,6 +34,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupInputs() {
+        val settings = viewModel.uiState.value.settings
         binding.ipEditText.setText(viewModel.uiState.value.ipAddress)
         binding.portEditText.setText(viewModel.uiState.value.port)
         binding.speedConfigTextView.text = viewModel.uiState.value.speedConfigText
@@ -44,15 +46,19 @@ class MainActivity : AppCompatActivity() {
         binding.waterTemperatureTextView.text = viewModel.uiState.value.waterTemperatureText
         binding.currentDirectionTextView.text = viewModel.uiState.value.currentDirectionText
         binding.currentSpeedTextView.text = viewModel.uiState.value.currentSpeedText
-        binding.speedSlider.value = viewModel.uiState.value.settings.speedKnots.toFloat()
-        binding.updateRateSlider.value = viewModel.uiState.value.settings.updateRateHz.toFloat()
-        binding.deviationSlider.value = viewModel.uiState.value.settings.injectedDeviationNm.toFloat()
-        binding.windDirectionSlider.value = viewModel.uiState.value.settings.windDirectionTrue.toFloat()
-        binding.windSpeedSlider.value = viewModel.uiState.value.settings.windSpeedKnots.toFloat()
-        binding.depthSlider.value = viewModel.uiState.value.settings.depthMeters.toFloat()
-        binding.waterTemperatureSlider.value = viewModel.uiState.value.settings.waterTemperatureCelsius.toFloat()
-        binding.currentDirectionSlider.value = viewModel.uiState.value.settings.currentDirectionTrue.toFloat()
-        binding.currentSpeedSlider.value = viewModel.uiState.value.settings.currentSpeedKnots.toFloat()
+        bindRangeSlider(binding.speedRangeSlider, settings.speedKnotsMin, settings.speedKnotsMax)
+        binding.updateRateSlider.value = settings.updateRateHz.toFloat()
+        binding.deviationSlider.value = settings.injectedDeviationNm.toFloat()
+        bindRangeSlider(binding.windDirectionRangeSlider, settings.windDirectionTrueMin, settings.windDirectionTrueMax)
+        bindRangeSlider(binding.windSpeedRangeSlider, settings.windSpeedKnotsMin, settings.windSpeedKnotsMax)
+        bindRangeSlider(binding.depthRangeSlider, settings.depthMetersMin, settings.depthMetersMax)
+        bindRangeSlider(
+            binding.waterTemperatureRangeSlider,
+            settings.waterTemperatureCelsiusMin,
+            settings.waterTemperatureCelsiusMax
+        )
+        bindRangeSlider(binding.currentDirectionRangeSlider, settings.currentDirectionTrueMin, settings.currentDirectionTrueMax)
+        bindRangeSlider(binding.currentSpeedRangeSlider, settings.currentSpeedKnotsMin, settings.currentSpeedKnotsMax)
 
         binding.ipEditText.doAfterTextChanged { viewModel.updateIpAddress(it?.toString().orEmpty()) }
         binding.portEditText.doAfterTextChanged { viewModel.updatePort(it?.toString().orEmpty()) }
@@ -62,33 +68,33 @@ class MainActivity : AppCompatActivity() {
         binding.windSectionButton.setOnClickListener { viewModel.toggleWindControls() }
         binding.waterSectionButton.setOnClickListener { viewModel.toggleWaterControls() }
         binding.currentSectionButton.setOnClickListener { viewModel.toggleCurrentControls() }
-        binding.speedSlider.addOnChangeListener { _, value, fromUser ->
-            if (fromUser) viewModel.updateSpeed(value)
-        }
+        binding.speedRangeSlider.addOnChangeListener(rangeListener { min, max ->
+            viewModel.updateSpeedRange(min, max)
+        })
         binding.updateRateSlider.addOnChangeListener { _, value, fromUser ->
             if (fromUser) viewModel.updateRate(value)
         }
         binding.deviationSlider.addOnChangeListener { _, value, fromUser ->
             if (fromUser) viewModel.updateDeviation(value)
         }
-        binding.windDirectionSlider.addOnChangeListener { _, value, fromUser ->
-            if (fromUser) viewModel.updateWindDirection(value)
-        }
-        binding.windSpeedSlider.addOnChangeListener { _, value, fromUser ->
-            if (fromUser) viewModel.updateWindSpeed(value)
-        }
-        binding.depthSlider.addOnChangeListener { _, value, fromUser ->
-            if (fromUser) viewModel.updateDepth(value)
-        }
-        binding.waterTemperatureSlider.addOnChangeListener { _, value, fromUser ->
-            if (fromUser) viewModel.updateWaterTemperature(value)
-        }
-        binding.currentDirectionSlider.addOnChangeListener { _, value, fromUser ->
-            if (fromUser) viewModel.updateCurrentDirection(value)
-        }
-        binding.currentSpeedSlider.addOnChangeListener { _, value, fromUser ->
-            if (fromUser) viewModel.updateCurrentSpeed(value)
-        }
+        binding.windDirectionRangeSlider.addOnChangeListener(rangeListener { min, max ->
+            viewModel.updateWindDirectionRange(min, max)
+        })
+        binding.windSpeedRangeSlider.addOnChangeListener(rangeListener { min, max ->
+            viewModel.updateWindSpeedRange(min, max)
+        })
+        binding.depthRangeSlider.addOnChangeListener(rangeListener { min, max ->
+            viewModel.updateDepthRange(min, max)
+        })
+        binding.waterTemperatureRangeSlider.addOnChangeListener(rangeListener { min, max ->
+            viewModel.updateWaterTemperatureRange(min, max)
+        })
+        binding.currentDirectionRangeSlider.addOnChangeListener(rangeListener { min, max ->
+            viewModel.updateCurrentDirectionRange(min, max)
+        })
+        binding.currentSpeedRangeSlider.addOnChangeListener(rangeListener { min, max ->
+            viewModel.updateCurrentSpeedRange(min, max)
+        })
     }
 
     private fun observeUi() {
@@ -132,6 +138,33 @@ class MainActivity : AppCompatActivity() {
                     binding.waterTemperatureTextView.text = state.waterTemperatureText
                     binding.currentDirectionTextView.text = state.currentDirectionText
                     binding.currentSpeedTextView.text = state.currentSpeedText
+                    syncRangeSlider(binding.speedRangeSlider, state.settings.speedKnotsMin, state.settings.speedKnotsMax)
+                    syncRangeSlider(
+                        binding.windDirectionRangeSlider,
+                        state.settings.windDirectionTrueMin,
+                        state.settings.windDirectionTrueMax
+                    )
+                    syncRangeSlider(
+                        binding.windSpeedRangeSlider,
+                        state.settings.windSpeedKnotsMin,
+                        state.settings.windSpeedKnotsMax
+                    )
+                    syncRangeSlider(binding.depthRangeSlider, state.settings.depthMetersMin, state.settings.depthMetersMax)
+                    syncRangeSlider(
+                        binding.waterTemperatureRangeSlider,
+                        state.settings.waterTemperatureCelsiusMin,
+                        state.settings.waterTemperatureCelsiusMax
+                    )
+                    syncRangeSlider(
+                        binding.currentDirectionRangeSlider,
+                        state.settings.currentDirectionTrueMin,
+                        state.settings.currentDirectionTrueMax
+                    )
+                    syncRangeSlider(
+                        binding.currentSpeedRangeSlider,
+                        state.settings.currentSpeedKnotsMin,
+                        state.settings.currentSpeedKnotsMax
+                    )
                     binding.vesselControlsLayout.visibility = state.vesselControlsExpanded.toVisibility()
                     binding.windControlsLayout.visibility = state.windControlsExpanded.toVisibility()
                     binding.waterControlsLayout.visibility = state.waterControlsExpanded.toVisibility()
@@ -153,6 +186,26 @@ class MainActivity : AppCompatActivity() {
                     )
                 }
             }
+        }
+    }
+}
+
+private fun bindRangeSlider(slider: RangeSlider, min: Double, max: Double) {
+    slider.values = listOf(min.toFloat(), max.toFloat())
+}
+
+private fun syncRangeSlider(slider: RangeSlider, min: Double, max: Double) {
+    val target = listOf(min.toFloat(), max.toFloat())
+    if (slider.values != target) {
+        slider.values = target
+    }
+}
+
+private fun rangeListener(onRange: (Float, Float) -> Unit): RangeSlider.OnChangeListener {
+    return RangeSlider.OnChangeListener { slider, _, fromUser ->
+        if (fromUser) {
+            val values = slider.values
+            onRange(values[0], values[1])
         }
     }
 }

@@ -7,9 +7,11 @@ import com.nauticontrol.nmeanavigationsimulator.model.Waypoint
 import kotlin.math.absoluteValue
 import kotlin.math.atan2
 import kotlin.math.hypot
+import kotlin.random.Random
 
 class SimulationEngine(
-    private val routeWaypoints: List<Waypoint> = defaultWaypoints()
+    private val routeWaypoints: List<Waypoint> = defaultWaypoints(),
+    private val random: Random = Random.Default
 ) {
     init {
         require(routeWaypoints.size >= 2) { "Simulation route requires at least two waypoints" }
@@ -21,13 +23,25 @@ class SimulationEngine(
     private val vesselTrack = mutableListOf(vesselPosition)
     private var lastTickTimestampMillis: Long? = null
 
-    fun reset() {
+    private val speedOscillator = RangeOscillator(7.0, 9.0, 0.15, 20.0, 60.0, random = random)
+    private val windDirectionOscillator = RangeOscillator(220.0, 260.0, 2.0, 45.0, 120.0, circular = true, random = random)
+    private val windSpeedOscillator = RangeOscillator(10.0, 14.0, 0.4, 15.0, 40.0, random = random)
+    private val depthOscillator = RangeOscillator(7.5, 8.5, 0.02, 60.0, 180.0, random = random)
+    private val waterTemperatureOscillator = RangeOscillator(13.0, 15.0, 0.01, 120.0, 300.0, random = random)
+    private val currentDirectionOscillator = RangeOscillator(80.0, 100.0, 1.0, 30.0, 90.0, circular = true, random = random)
+    private val currentSpeedOscillator = RangeOscillator(0.3, 0.7, 0.05, 30.0, 90.0, random = random)
+
+    fun reset(
+        settings: SimulatorSettings = SimulatorSettings(),
+        timestampMillis: Long = System.currentTimeMillis()
+    ) {
         routeIndex = 1
         vesselPosition = routeWaypoints.first().position
         headingTrue = GeoMath.bearingDegrees(routeWaypoints[0].position, routeWaypoints[1].position)
         vesselTrack.clear()
         vesselTrack += vesselPosition
         lastTickTimestampMillis = null
+        resetOscillators(settings.sanitized(), timestampMillis)
     }
 
     fun currentRoute(): List<GeoPoint> = routeWaypoints.map { it.position }
@@ -40,6 +54,15 @@ class SimulationEngine(
         val sanitizedSettings = settings.sanitized()
         val deltaSeconds = calculateDeltaSeconds(sanitizedSettings, timestampMillis, previousTimestampMillis)
         lastTickTimestampMillis = timestampMillis
+
+        updateOscillatorBounds(sanitizedSettings)
+        val speedThroughWaterKnots = speedOscillator.tick(deltaSeconds, timestampMillis)
+        val windDirectionTrue = windDirectionOscillator.tick(deltaSeconds, timestampMillis)
+        val windSpeedKnots = windSpeedOscillator.tick(deltaSeconds, timestampMillis)
+        val depthMeters = depthOscillator.tick(deltaSeconds, timestampMillis)
+        val waterTemperatureCelsius = waterTemperatureOscillator.tick(deltaSeconds, timestampMillis)
+        val currentDirectionTrue = currentDirectionOscillator.tick(deltaSeconds, timestampMillis)
+        val currentSpeedKnots = currentSpeedOscillator.tick(deltaSeconds, timestampMillis)
 
         var fromWaypoint = routeWaypoints[routeIndex - 1]
         var toWaypoint = routeWaypoints[routeIndex]
@@ -56,16 +79,10 @@ class SimulationEngine(
             .coerceIn(-maxHeadingStep, maxHeadingStep)
         headingTrue = GeoMath.normalizeDegrees(headingTrue + turnStep)
 
-        val waterEastKnots = eastComponent(sanitizedSettings.speedKnots, headingTrue)
-        val waterNorthKnots = northComponent(sanitizedSettings.speedKnots, headingTrue)
-        val currentEastKnots = eastComponent(
-            sanitizedSettings.currentSpeedKnots,
-            sanitizedSettings.currentDirectionTrue
-        )
-        val currentNorthKnots = northComponent(
-            sanitizedSettings.currentSpeedKnots,
-            sanitizedSettings.currentDirectionTrue
-        )
+        val waterEastKnots = eastComponent(speedThroughWaterKnots, headingTrue)
+        val waterNorthKnots = northComponent(speedThroughWaterKnots, headingTrue)
+        val currentEastKnots = eastComponent(currentSpeedKnots, currentDirectionTrue)
+        val currentNorthKnots = northComponent(currentSpeedKnots, currentDirectionTrue)
         val sogEastKnots = waterEastKnots + currentEastKnots
         val sogNorthKnots = waterNorthKnots + currentNorthKnots
         val speedOverGroundKnots = hypot(sogEastKnots, sogNorthKnots)
@@ -104,24 +121,51 @@ class SimulationEngine(
             headingTrue = headingTrue,
             trackBearingTrue = trackBearing,
             speedKnots = speedOverGroundKnots,
-            speedThroughWaterKnots = sanitizedSettings.speedKnots,
+            speedThroughWaterKnots = speedThroughWaterKnots,
             speedOverGroundKnots = speedOverGroundKnots,
             courseOverGroundTrue = courseOverGroundTrue,
             crossTrackErrorNm = signedXte,
             bearingToWaypoint = GeoMath.bearingDegrees(vesselPosition, activeWaypoint.position),
             distanceToWaypointNm = GeoMath.distanceNm(vesselPosition, activeWaypoint.position),
-            windDirectionTrue = sanitizedSettings.windDirectionTrue,
-            windSpeedKnots = sanitizedSettings.windSpeedKnots,
-            depthMeters = sanitizedSettings.depthMeters,
-            waterTemperatureCelsius = sanitizedSettings.waterTemperatureCelsius,
-            currentDirectionTrue = sanitizedSettings.currentDirectionTrue,
-            currentSpeedKnots = sanitizedSettings.currentSpeedKnots,
+            windDirectionTrue = windDirectionTrue,
+            windSpeedKnots = windSpeedKnots,
+            depthMeters = depthMeters,
+            waterTemperatureCelsius = waterTemperatureCelsius,
+            currentDirectionTrue = currentDirectionTrue,
+            currentSpeedKnots = currentSpeedKnots,
             previousWaypoint = routeWaypoints[routeIndex - 1],
             currentWaypoint = activeWaypoint,
             route = currentRoute(),
             vesselTrack = vesselTrack.toList(),
             timestampMillis = timestampMillis
         )
+    }
+
+    private fun resetOscillators(settings: SimulatorSettings, timestampMillis: Long) {
+        speedOscillator.reset(settings.speedKnotsMin, settings.speedKnotsMax, timestampMillis)
+        windDirectionOscillator.reset(settings.windDirectionTrueMin, settings.windDirectionTrueMax, timestampMillis)
+        windSpeedOscillator.reset(settings.windSpeedKnotsMin, settings.windSpeedKnotsMax, timestampMillis)
+        depthOscillator.reset(settings.depthMetersMin, settings.depthMetersMax, timestampMillis)
+        waterTemperatureOscillator.reset(
+            settings.waterTemperatureCelsiusMin,
+            settings.waterTemperatureCelsiusMax,
+            timestampMillis
+        )
+        currentDirectionOscillator.reset(settings.currentDirectionTrueMin, settings.currentDirectionTrueMax, timestampMillis)
+        currentSpeedOscillator.reset(settings.currentSpeedKnotsMin, settings.currentSpeedKnotsMax, timestampMillis)
+    }
+
+    private fun updateOscillatorBounds(settings: SimulatorSettings) {
+        speedOscillator.updateBounds(settings.speedKnotsMin, settings.speedKnotsMax)
+        windDirectionOscillator.updateBounds(settings.windDirectionTrueMin, settings.windDirectionTrueMax)
+        windSpeedOscillator.updateBounds(settings.windSpeedKnotsMin, settings.windSpeedKnotsMax)
+        depthOscillator.updateBounds(settings.depthMetersMin, settings.depthMetersMax)
+        waterTemperatureOscillator.updateBounds(
+            settings.waterTemperatureCelsiusMin,
+            settings.waterTemperatureCelsiusMax
+        )
+        currentDirectionOscillator.updateBounds(settings.currentDirectionTrueMin, settings.currentDirectionTrueMax)
+        currentSpeedOscillator.updateBounds(settings.currentSpeedKnotsMin, settings.currentSpeedKnotsMax)
     }
 
     private fun calculateDeltaSeconds(
@@ -133,20 +177,6 @@ class SimulationEngine(
             return 1.0 / settings.updateRateHz.coerceAtLeast(1)
         }
         return ((timestampMillis - previousTimestampMillis) / 1000.0).coerceIn(0.05, 2.0)
-    }
-
-    private fun SimulatorSettings.sanitized(): SimulatorSettings {
-        return copy(
-            speedKnots = speedKnots.coerceAtLeast(0.0),
-            updateRateHz = updateRateHz.coerceAtLeast(1),
-            injectedDeviationNm = injectedDeviationNm.coerceIn(-5.0, 5.0),
-            windDirectionTrue = GeoMath.normalizeDegrees(windDirectionTrue),
-            windSpeedKnots = windSpeedKnots.coerceIn(0.0, 80.0),
-            depthMeters = depthMeters.coerceIn(0.0, 200.0),
-            waterTemperatureCelsius = waterTemperatureCelsius.coerceIn(-2.0, 40.0),
-            currentDirectionTrue = GeoMath.normalizeDegrees(currentDirectionTrue),
-            currentSpeedKnots = currentSpeedKnots.coerceIn(0.0, 10.0)
-        )
     }
 
     private fun eastComponent(speedKnots: Double, bearingTrue: Double): Double {
@@ -171,4 +201,51 @@ class SimulationEngine(
             Waypoint("PORTGL", GeoPoint(54.7000, -6.5200))
         )
     }
+}
+
+private fun SimulatorSettings.sanitized(): SimulatorSettings {
+    val speedPair = orderedPair(speedKnotsMin, speedKnotsMax)
+    val speedMin = speedPair.first.coerceAtLeast(0.0)
+    val speedMax = speedPair.second.coerceAtLeast(speedMin)
+    val windDirPair = orderedPair(windDirectionTrueMin, windDirectionTrueMax)
+    val windDirMin = GeoMath.normalizeDegrees(windDirPair.first)
+    val windDirMax = GeoMath.normalizeDegrees(windDirPair.second)
+    val windSpeedPair = orderedPair(windSpeedKnotsMin, windSpeedKnotsMax)
+    val windSpeedMin = windSpeedPair.first.coerceIn(0.0, 80.0)
+    val windSpeedMax = windSpeedPair.second.coerceIn(windSpeedMin, 80.0)
+    val depthPair = orderedPair(depthMetersMin, depthMetersMax)
+    val depthMin = depthPair.first.coerceIn(0.0, 200.0)
+    val depthMax = depthPair.second.coerceIn(depthMin, 200.0)
+    val tempPair = orderedPair(waterTemperatureCelsiusMin, waterTemperatureCelsiusMax)
+    val tempMin = tempPair.first.coerceIn(-2.0, 40.0)
+    val tempMax = tempPair.second.coerceIn(tempMin, 40.0)
+    val currentDirPair = orderedPair(currentDirectionTrueMin, currentDirectionTrueMax)
+    val currentDirMin = GeoMath.normalizeDegrees(currentDirPair.first)
+    val currentDirMax = GeoMath.normalizeDegrees(currentDirPair.second)
+    val currentSpeedPair = orderedPair(currentSpeedKnotsMin, currentSpeedKnotsMax)
+    val currentSpeedMin = currentSpeedPair.first.coerceIn(0.0, 10.0)
+    val currentSpeedMax = currentSpeedPair.second.coerceIn(currentSpeedMin, 10.0)
+
+    return copy(
+        speedKnotsMin = speedMin,
+        speedKnotsMax = speedMax,
+        updateRateHz = updateRateHz.coerceAtLeast(1),
+        injectedDeviationNm = injectedDeviationNm.coerceIn(-5.0, 5.0),
+        windDirectionTrueMin = windDirMin,
+        windDirectionTrueMax = windDirMax,
+        windSpeedKnotsMin = windSpeedMin,
+        windSpeedKnotsMax = windSpeedMax,
+        depthMetersMin = depthMin,
+        depthMetersMax = depthMax,
+        waterTemperatureCelsiusMin = tempMin,
+        waterTemperatureCelsiusMax = tempMax,
+        currentDirectionTrueMin = currentDirMin,
+        currentDirectionTrueMax = currentDirMax,
+        currentSpeedKnotsMin = currentSpeedMin,
+        currentSpeedKnotsMax = currentSpeedMax
+    )
+}
+
+private fun orderedPair(min: Double, max: Double): Pair<Double, Double> {
+    return if (min <= max) min to max else max to min
 }

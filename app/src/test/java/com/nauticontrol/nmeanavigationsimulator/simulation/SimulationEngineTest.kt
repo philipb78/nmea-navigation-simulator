@@ -7,6 +7,7 @@ import org.junit.Assert.assertThrows
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import kotlin.random.Random
 
 class SimulationEngineTest {
     private val route = listOf(
@@ -17,12 +18,12 @@ class SimulationEngineTest {
 
     @Test
     fun `simulation distance is approximately frame rate independent`() {
-        val settings1Hz = SimulatorSettings(speedKnots = 12.0, updateRateHz = 1, injectedDeviationNm = 0.0)
-        val oneStepEngine = SimulationEngine(route)
+        val settings1Hz = SimulatorSettings(speedKnotsMin = 12.0, speedKnotsMax = 12.0, updateRateHz = 1, injectedDeviationNm = 0.0)
+        val oneStepEngine = SimulationEngine(route, Random(1))
         val oneStep = oneStepEngine.tick(settings1Hz, timestampMillis = 1_000L, previousTimestampMillis = 0L)
 
         val settings2Hz = settings1Hz.copy(updateRateHz = 2)
-        val twoStepEngine = SimulationEngine(route)
+        val twoStepEngine = SimulationEngine(route, Random(1))
         twoStepEngine.tick(settings2Hz, timestampMillis = 500L, previousTimestampMillis = 0L)
         val twoStep = twoStepEngine.tick(settings2Hz, timestampMillis = 1_000L, previousTimestampMillis = 500L)
 
@@ -38,9 +39,9 @@ class SimulationEngineTest {
 
     @Test
     fun `invalid update rate is clamped for simulation tick`() {
-        val engine = SimulationEngine(route)
+        val engine = SimulationEngine(route, Random(2))
         val snapshot = engine.tick(
-            SimulatorSettings(speedKnots = 12.0, updateRateHz = 0, injectedDeviationNm = 0.0),
+            SimulatorSettings(speedKnotsMin = 12.0, speedKnotsMax = 12.0, updateRateHz = 0, injectedDeviationNm = 0.0),
             timestampMillis = 1_000L,
             previousTimestampMillis = null
         )
@@ -50,14 +51,17 @@ class SimulationEngineTest {
 
     @Test
     fun `current changes speed over ground while preserving speed through water`() {
-        val engine = SimulationEngine(route)
+        val engine = SimulationEngine(route, Random(3))
         val snapshot = engine.tick(
             SimulatorSettings(
-                speedKnots = 10.0,
+                speedKnotsMin = 10.0,
+                speedKnotsMax = 10.0,
                 updateRateHz = 1,
                 injectedDeviationNm = 0.0,
-                currentDirectionTrue = 90.0,
-                currentSpeedKnots = 2.0
+                currentDirectionTrueMin = 90.0,
+                currentDirectionTrueMax = 90.0,
+                currentSpeedKnotsMin = 2.0,
+                currentSpeedKnotsMax = 2.0
             ),
             timestampMillis = 1_000L,
             previousTimestampMillis = 0L
@@ -69,15 +73,49 @@ class SimulationEngineTest {
     }
 
     @Test
-    fun `depth setting flows into navigation snapshot unchanged`() {
-        val engine = SimulationEngine(route)
+    fun `static depth range flows into navigation snapshot unchanged`() {
+        val engine = SimulationEngine(route, Random(4))
         val snapshot = engine.tick(
-            SimulatorSettings(depthMeters = 12.3),
+            SimulatorSettings(depthMetersMin = 12.3, depthMetersMax = 12.3),
             timestampMillis = 1_000L,
-            previousTimestampMillis = 0L
+            previousTimestampMillis = null
         )
 
         assertEquals(12.3, snapshot.depthMeters, 0.0)
+    }
+
+    @Test
+    fun `environmental values fluctuate within configured ranges`() {
+        val settings = SimulatorSettings(
+            speedKnotsMin = 7.0,
+            speedKnotsMax = 9.0,
+            windDirectionTrueMin = 220.0,
+            windDirectionTrueMax = 260.0,
+            windSpeedKnotsMin = 10.0,
+            windSpeedKnotsMax = 14.0,
+            depthMetersMin = 7.5,
+            depthMetersMax = 8.5,
+            waterTemperatureCelsiusMin = 13.0,
+            waterTemperatureCelsiusMax = 15.0,
+            currentDirectionTrueMin = 80.0,
+            currentDirectionTrueMax = 100.0,
+            currentSpeedKnotsMin = 0.3,
+            currentSpeedKnotsMax = 0.7
+        )
+        val engine = SimulationEngine(route, Random(99))
+        engine.reset(settings, 0L)
+        val first = engine.tick(settings, 1_000L, 0L)
+        val second = engine.tick(settings, 60_000L, 1_000L)
+
+        assertTrue(first.depthMeters in 7.5..8.5)
+        assertTrue(second.depthMeters in 7.5..8.5)
+        assertTrue(first.windSpeedKnots in 10.0..14.0)
+        assertTrue(second.windSpeedKnots in 10.0..14.0)
+        assertTrue(
+            first.depthMeters != second.depthMeters ||
+                first.windSpeedKnots != second.windSpeedKnots ||
+                first.speedThroughWaterKnots != second.speedThroughWaterKnots
+        )
     }
 
     @Test
