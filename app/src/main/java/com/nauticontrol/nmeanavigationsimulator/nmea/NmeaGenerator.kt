@@ -8,7 +8,11 @@ import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.absoluteValue
+import kotlin.math.atan2
+import kotlin.math.cos
 import kotlin.math.roundToLong
+import kotlin.math.sin
+import kotlin.math.sqrt
 
 class NmeaGenerator {
     private val utcTimeFormat = DateTimeFormatter.ofPattern("HHmmss.SS", Locale.US)
@@ -26,7 +30,6 @@ class NmeaGenerator {
             gpVhw(snapshot),
             gpRmb(snapshot),
             wiMwv(snapshot),
-            wiMwd(snapshot),
             sdDbd(snapshot),
             sdDpt(snapshot),
             iiVbw(snapshot),
@@ -162,29 +165,20 @@ class NmeaGenerator {
     }
 
     private fun wiMwv(snapshot: NavigationSnapshot): String {
-        val relativeWindAngle = GeoMath.normalizeDegrees(snapshot.windDirectionTrue - snapshot.headingTrue)
+        val twdRad = Math.toRadians(snapshot.windDirectionTrue)
+        val hdgRad = Math.toRadians(snapshot.headingTrue)
+        val awe = snapshot.windSpeedKnots * sin(twdRad) - snapshot.speedThroughWaterKnots * sin(hdgRad)
+        val awn = snapshot.windSpeedKnots * cos(twdRad) - snapshot.speedThroughWaterKnots * cos(hdgRad)
+        val aws = sqrt(awe * awe + awn * awn)
+        val awdTrue = GeoMath.normalizeDegrees(Math.toDegrees(atan2(awe, awn)))
+        val awa = GeoMath.normalizeDegrees(awdTrue - snapshot.headingTrue)
         return sentence(
             "WIMWV",
-            "%.1f".format(Locale.US, relativeWindAngle),
+            "%.1f".format(Locale.US, awa),
             "R",
-            "%.1f".format(Locale.US, snapshot.windSpeedKnots),
+            "%.1f".format(Locale.US, aws),
             "N",
             "A"
-        )
-    }
-
-    private fun wiMwd(snapshot: NavigationSnapshot): String {
-        val speedMetersPerSecond = snapshot.windSpeedKnots * 0.514444
-        return sentence(
-            "WIMWD",
-            "%.1f".format(Locale.US, snapshot.windDirectionTrue),
-            "T",
-            "",
-            "M",
-            "%.1f".format(Locale.US, snapshot.windSpeedKnots),
-            "N",
-            "%.1f".format(Locale.US, speedMetersPerSecond),
-            "M"
         )
     }
 

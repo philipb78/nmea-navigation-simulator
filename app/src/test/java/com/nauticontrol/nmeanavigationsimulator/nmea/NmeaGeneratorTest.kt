@@ -15,7 +15,7 @@ class NmeaGeneratorTest {
     fun `generated sentences have valid checksums`() {
         val sentences = generator.generate(snapshot())
 
-        assertEquals(15, sentences.size)
+        assertEquals(14, sentences.size)
         sentences.forEach { sentence ->
             assertTrue(sentence.startsWith("\$"))
             val body = sentence.substringAfter("\$").substringBefore("*")
@@ -80,22 +80,21 @@ class NmeaGeneratorTest {
         val sentences = generator.generate(snapshot())
 
         assertTrue(sentences[7].startsWith("\$WIMWV,"))
-        assertTrue(sentences[7].contains(",12.0,N,A*"))
-        assertEquals(listOf("240.0", "T", "", "M", "12.0", "N", "6.2", "M"), parsedFields(sentences[8]))
-        assertTrue(sentences[9].startsWith("\$SDDBD,26.2,f,8.0,M,4.4,F*"))
-        assertEquals(listOf("8.0", "0.0", ""), parsedFields(sentences[10]))
-        assertEquals(listOf("12.50", "0.00", "A", "13.10", "0.00", "A", "", "", "", ""), parsedFields(sentences[11]))
-        assertTrue(sentences[12].startsWith("\$HCHDT,91.2,T*"))
-        assertEquals(listOf("91.2", "", "", "", ""), parsedFields(sentences[13]))
-        assertTrue(sentences[14].startsWith("\$YCMTW,14.0,C*"))
+        assertTrue(sentences[7].contains(",164.6,R,23.6,N,A*"))
+        assertTrue(sentences[8].startsWith("\$SDDBD,26.2,f,8.0,M,4.4,F*"))
+        assertEquals(listOf("8.0", "0.0", ""), parsedFields(sentences[9]))
+        assertEquals(listOf("12.50", "0.00", "A", "13.10", "0.00", "A", "", "", "", ""), parsedFields(sentences[10]))
+        assertTrue(sentences[11].startsWith("\$HCHDT,91.2,T*"))
+        assertEquals(listOf("91.2", "", "", "", ""), parsedFields(sentences[12]))
+        assertTrue(sentences[13].startsWith("\$YCMTW,14.0,C*"))
     }
 
     @Test
     fun `depth sentences use snapshot depth in meters feet and fathoms`() {
         val sentences = generator.generate(snapshot(depthMeters = 12.3))
 
-        assertTrue(sentences[9].startsWith("\$SDDBD,40.4,f,12.3,M,6.7,F*"))
-        assertEquals(listOf("12.3", "0.0", ""), parsedFields(sentences[10]))
+        assertTrue(sentences[8].startsWith("\$SDDBD,40.4,f,12.3,M,6.7,F*"))
+        assertEquals(listOf("12.3", "0.0", ""), parsedFields(sentences[9]))
     }
 
     @Test
@@ -110,7 +109,6 @@ class NmeaGeneratorTest {
             "GPVHW" to 8,
             "GPRMB" to 13,
             "WIMWV" to 5,
-            "WIMWD" to 8,
             "SDDBD" to 6,
             "SDDPT" to 3,
             "IIVBW" to 10,
