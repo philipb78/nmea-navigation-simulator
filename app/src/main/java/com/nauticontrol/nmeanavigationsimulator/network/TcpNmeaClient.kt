@@ -19,6 +19,7 @@ import java.io.BufferedWriter
 import java.io.OutputStreamWriter
 import java.net.InetSocketAddress
 import java.net.Socket
+import java.net.SocketTimeoutException
 import java.util.concurrent.atomic.AtomicInteger
 
 class TcpNmeaClient {
@@ -30,6 +31,7 @@ class TcpNmeaClient {
 
     private var socket: Socket? = null
     private var writer: BufferedWriter? = null
+    private var inboundDrainJob: Job? = null
     private val connectionGeneration = AtomicInteger(0)
     @Volatile
     private var host: String = ""
@@ -157,6 +159,7 @@ class TcpNmeaClient {
                     closeSocketLocked()
                     socket = newSocket
                     writer = BufferedWriter(OutputStreamWriter(newSocket.getOutputStream()))
+                    inboundDrainJob = launchInboundDrain(newSocket, attemptGeneration)
                     true
                 } else {
                     false
@@ -195,6 +198,8 @@ class TcpNmeaClient {
     }
 
     private fun closeSocketLocked() {
+        inboundDrainJob?.cancel()
+        inboundDrainJob = null
         try {
             writer?.close()
         } catch (_: Exception) {
@@ -205,6 +210,32 @@ class TcpNmeaClient {
         }
         writer = null
         socket = null
+    }
+
+    /**
+     * ESP32 pushes converted NMEA back over the same TCP socket. Drain and discard
+     * so the kernel receive buffer does not fill and stall ESP outbound ACKs.
+     * Caller assigns the returned Job to [inboundDrainJob] while holding [socketMutex].
+     */
+    private fun launchInboundDrain(activeSocket: Socket, generation: Int): Job {
+        return scope.launch {
+            val buffer = ByteArray(4096)
+            try {
+                val input = activeSocket.getInputStream()
+                while (isActive && generation == connectionGeneration.get()) {
+                    try {
+                        val bytesRead = input.read(buffer)
+                        if (bytesRead < 0) {
+                            break
+                        }
+                    } catch (_: SocketTimeoutException) {
+                        // soTimeout on connect socket; keep draining until generation changes
+                    }
+                }
+            } catch (_: Exception) {
+                // Socket closed or connection lost
+            }
+        }
     }
 
     private fun updateState(state: ConnectionState) {
