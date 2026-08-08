@@ -2,6 +2,7 @@ package com.nauticontrol.nmeanavigationsimulator.nmea
 
 import com.nauticontrol.nmeanavigationsimulator.model.GeoPoint
 import com.nauticontrol.nmeanavigationsimulator.model.NavigationSnapshot
+import com.nauticontrol.nmeanavigationsimulator.model.SimulatorSettings
 import com.nauticontrol.nmeanavigationsimulator.simulation.GeoMath
 import java.time.Instant
 import java.time.ZoneOffset
@@ -20,8 +21,15 @@ class NmeaGenerator {
     private val utcDateFormat = DateTimeFormatter.ofPattern("ddMMyy", Locale.US)
         .withZone(ZoneOffset.UTC)
 
-    fun generate(snapshot: NavigationSnapshot): List<String> {
-        return listOf(
+    private var lastType5EmitMillis: Long = Long.MIN_VALUE
+    private var aisSequentialMessageId: Int = 0
+
+    fun generate(
+        snapshot: NavigationSnapshot,
+        settings: SimulatorSettings = SimulatorSettings()
+    ): List<String> {
+        val sanitized = settings.sanitizedForNmea()
+        val sentences = mutableListOf(
             gpApb(snapshot),
             gpXte(snapshot),
             gpRmc(snapshot),
@@ -29,14 +37,19 @@ class NmeaGenerator {
             gpVtg(snapshot),
             gpVhw(snapshot),
             gpRmb(snapshot),
-            wiMwv(snapshot),
-            sdDbd(snapshot),
+            wiMwv(snapshot, sanitized),
+            sdDbt(snapshot),
             sdDpt(snapshot),
             iiVbw(snapshot),
+            iiRsa(sanitized),
             hcHdt(snapshot),
             hcHdg(snapshot),
             ycMtw(snapshot)
         )
+        if (sanitized.emitAis) {
+            sentences += aisSentences(snapshot, sanitized)
+        }
+        return sentences
     }
 
     private fun gpApb(snapshot: NavigationSnapshot): String {
@@ -164,7 +177,7 @@ class NmeaGenerator {
         )
     }
 
-    private fun wiMwv(snapshot: NavigationSnapshot): String {
+    private fun wiMwv(snapshot: NavigationSnapshot, settings: SimulatorSettings): String {
         val twdRad = Math.toRadians(snapshot.windDirectionTrue)
         val hdgRad = Math.toRadians(snapshot.headingTrue)
         val awe = snapshot.windSpeedKnots * sin(twdRad) - snapshot.speedThroughWaterKnots * sin(hdgRad)
@@ -172,21 +185,22 @@ class NmeaGenerator {
         val aws = sqrt(awe * awe + awn * awn)
         val awdTrue = GeoMath.normalizeDegrees(Math.toDegrees(atan2(awe, awn)))
         val awa = GeoMath.normalizeDegrees(awdTrue - snapshot.headingTrue)
+        val status = if (settings.mwvStatusInvalid) "V" else "A"
         return sentence(
             "WIMWV",
             "%.1f".format(Locale.US, awa),
             "R",
             "%.1f".format(Locale.US, aws),
             "N",
-            "A"
+            status
         )
     }
 
-    private fun sdDbd(snapshot: NavigationSnapshot): String {
+    private fun sdDbt(snapshot: NavigationSnapshot): String {
         val depthFeet = snapshot.depthMeters * 3.28084
         val depthFathoms = snapshot.depthMeters * 0.546807
         return sentence(
-            "SDDBD",
+            "SDDBT",
             "%.1f".format(Locale.US, depthFeet), "f",
             "%.1f".format(Locale.US, snapshot.depthMeters), "M",
             "%.1f".format(Locale.US, depthFathoms), "F"
@@ -218,6 +232,17 @@ class NmeaGenerator {
         )
     }
 
+    private fun iiRsa(settings: SimulatorSettings): String {
+        val status = if (settings.rsaStatusInvalid) "V" else "A"
+        return sentence(
+            "IIRSA",
+            "%.1f".format(Locale.US, settings.rudderAngleDegrees),
+            status,
+            "",
+            ""
+        )
+    }
+
     private fun hcHdt(snapshot: NavigationSnapshot): String {
         return sentence("HCHDT", "%.1f".format(Locale.US, snapshot.headingTrue), "T")
     }
@@ -235,6 +260,97 @@ class NmeaGenerator {
 
     private fun ycMtw(snapshot: NavigationSnapshot): String {
         return sentence("YCMTW", "%.1f".format(Locale.US, snapshot.waterTemperatureCelsius), "C")
+    }
+
+    private fun aisSentences(snapshot: NavigationSnapshot, settings: SimulatorSettings): List<String> {
+        val sentences = mutableListOf<String>()
+        val classAPosition = GeoMath.move(snapshot.position, snapshot.headingTrue, 0.3)
+        val classBPosition = GeoMath.move(
+            snapshot.position,
+            GeoMath.normalizeDegrees(snapshot.headingTrue + 90.0),
+            0.5
+        )
+        val secondOfMinute = ((snapshot.timestampMillis / 1000L) % 60L).toInt()
+
+        sentences += aivdm(
+            AisEncoder.encodeType1ClassA(
+                mmsi = CLASS_A_MMSI,
+                position = classAPosition,
+                sogKnots = (snapshot.speedOverGroundKnots * 0.9).coerceAtLeast(0.0),
+                cogDegrees = snapshot.courseOverGroundTrue,
+                headingDegrees = snapshot.headingTrue,
+                timestampSeconds = secondOfMinute
+            )
+        )
+
+        sentences += aivdm(
+            AisEncoder.encodeType18ClassB(
+                mmsi = CLASS_B_MMSI,
+                position = classBPosition,
+                sogKnots = (snapshot.speedOverGroundKnots * 0.7).coerceAtLeast(0.0),
+                cogDegrees = GeoMath.normalizeDegrees(snapshot.courseOverGroundTrue + 15.0),
+                headingDegrees = GeoMath.normalizeDegrees(snapshot.headingTrue + 15.0),
+                timestampSeconds = secondOfMinute
+            )
+        )
+
+        if (snapshot.timestampMillis - lastType5EmitMillis >= TYPE5_INTERVAL_MS || lastType5EmitMillis == Long.MIN_VALUE) {
+            lastType5EmitMillis = snapshot.timestampMillis
+            sentences += aivdm(
+                AisEncoder.encodeType5Static(
+                    mmsi = CLASS_A_MMSI,
+                    vesselName = "N2K CLASS A",
+                    callSign = "LA1234",
+                    shipType = 70,
+                    destination = "NAUTIC"
+                )
+            )
+        }
+
+        if (settings.emitAivdo) {
+            sentences += aivdo(
+                AisEncoder.encodeType1ClassA(
+                    mmsi = OWN_SHIP_MMSI,
+                    position = snapshot.position,
+                    sogKnots = snapshot.speedOverGroundKnots,
+                    cogDegrees = snapshot.courseOverGroundTrue,
+                    headingDegrees = snapshot.headingTrue,
+                    timestampSeconds = secondOfMinute
+                )
+            )
+        }
+
+        return sentences
+    }
+
+    private fun aivdm(payloadBits: ByteArray): List<String> {
+        return encapsulatedSentences("AIVDM", payloadBits)
+    }
+
+    private fun aivdo(payloadBits: ByteArray): List<String> {
+        return encapsulatedSentences("AIVDO", payloadBits)
+    }
+
+    private fun encapsulatedSentences(talkerSentence: String, payloadBits: ByteArray): List<String> {
+        val (payload, fillBits) = AisEncoder.toSixBitPayload(payloadBits)
+        val fragments = AisEncoder.splitAivdmPayload(payload, fillBits)
+        val sequentialId = if (fragments.size > 1) {
+            aisSequentialMessageId = (aisSequentialMessageId + 1) % 10
+            aisSequentialMessageId.toString()
+        } else {
+            ""
+        }
+        return fragments.mapIndexed { index, (fragmentPayload, fragmentFill) ->
+            encapsulatedSentence(
+                talkerSentence,
+                fragments.size.toString(),
+                (index + 1).toString(),
+                sequentialId,
+                "A",
+                fragmentPayload,
+                fragmentFill.toString()
+            )
+        }
     }
 
     private fun latitude(point: GeoPoint): String {
@@ -263,6 +379,14 @@ class NmeaGenerator {
     }
 
     private fun sentence(type: String, vararg fields: String): String {
+        return framedSentence('$', type, *fields)
+    }
+
+    private fun encapsulatedSentence(type: String, vararg fields: String): String {
+        return framedSentence('!', type, *fields)
+    }
+
+    private fun framedSentence(start: Char, type: String, vararg fields: String): String {
         val body = buildString {
             append(type)
             fields.forEach {
@@ -271,6 +395,19 @@ class NmeaGenerator {
             }
         }
         val checksum = body.fold(0) { acc, c -> acc xor c.code }
-        return "\$${body}*%02X".format(Locale.US, checksum)
+        return "$start${body}*%02X".format(Locale.US, checksum)
     }
+
+    companion object {
+        private const val CLASS_A_MMSI = 257000001
+        private const val CLASS_B_MMSI = 257000002
+        private const val OWN_SHIP_MMSI = 257000000
+        private const val TYPE5_INTERVAL_MS = 30_000L
+    }
+}
+
+private fun SimulatorSettings.sanitizedForNmea(): SimulatorSettings {
+    return copy(
+        rudderAngleDegrees = rudderAngleDegrees.coerceIn(-40.0, 40.0)
+    )
 }

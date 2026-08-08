@@ -2,6 +2,7 @@ package com.nauticontrol.nmeanavigationsimulator.nmea
 
 import com.nauticontrol.nmeanavigationsimulator.model.GeoPoint
 import com.nauticontrol.nmeanavigationsimulator.model.NavigationSnapshot
+import com.nauticontrol.nmeanavigationsimulator.model.SimulatorSettings
 import com.nauticontrol.nmeanavigationsimulator.model.Waypoint
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -10,15 +11,16 @@ import org.junit.Test
 
 class NmeaGeneratorTest {
     private val generator = NmeaGenerator()
+    private val noAis = SimulatorSettings(emitAis = false)
 
     @Test
     fun `generated sentences have valid checksums`() {
-        val sentences = generator.generate(snapshot())
+        val sentences = generator.generate(snapshot(), noAis)
 
-        assertEquals(14, sentences.size)
+        assertEquals(15, sentences.size)
         sentences.forEach { sentence ->
-            assertTrue(sentence.startsWith("\$"))
-            val body = sentence.substringAfter("\$").substringBefore("*")
+            assertTrue(sentence.startsWith("\$") || sentence.startsWith("!"))
+            val body = sentence.substring(1).substringBefore("*")
             val expectedChecksum = body.fold(0) { acc, c -> acc xor c.code }
             val actualChecksum = sentence.substringAfter("*")
             assertEquals("%02X".format(expectedChecksum), actualChecksum)
@@ -27,7 +29,7 @@ class NmeaGeneratorTest {
 
     @Test
     fun `apb sentence sanitizes waypoint ids and uses track bearing`() {
-        val apb = generator.generate(snapshot(waypointName = "WP,*\$7"))[0]
+        val apb = generator.generate(snapshot(waypointName = "WP,*\$7"), noAis)[0]
 
         assertTrue(apb.contains(",090.0,T,WP7,093.4,T,090.0,T,A*"))
         assertFalse(apb.contains("*\$7"))
@@ -35,14 +37,14 @@ class NmeaGeneratorTest {
 
     @Test
     fun `rmc sentence uses west hemisphere for negative longitude`() {
-        val rmc = generator.generate(snapshot(position = GeoPoint(50.5, -1.25)))[2]
+        val rmc = generator.generate(snapshot(position = GeoPoint(50.5, -1.25)), noAis)[2]
 
         assertTrue(rmc.contains(",N,00115.000,W,"))
     }
 
     @Test
     fun `vhw sentence contains true heading and speed`() {
-        val vhw = generator.generate(snapshot())[5]
+        val vhw = generator.generate(snapshot(), noAis)[5]
 
         assertTrue(vhw.startsWith("\$GPVHW,"))
         assertTrue(vhw.contains(",91.2,T,"))
@@ -51,7 +53,7 @@ class NmeaGeneratorTest {
 
     @Test
     fun `rmb sentence contains xte steer direction origin dest waypoints bearing and arrival status`() {
-        val rmb = generator.generate(snapshot())[6]
+        val rmb = generator.generate(snapshot(), noAis)[6]
 
         assertTrue(rmb.startsWith("\$GPRMB,"))
         assertTrue(rmb.contains(",A,0.15,L,"))   // status A, XTE 0.15 steer L
@@ -62,7 +64,7 @@ class NmeaGeneratorTest {
 
     @Test
     fun `rmb sentence uses destination waypoint coordinates`() {
-        val rmb = generator.generate(snapshot())[6]
+        val rmb = generator.generate(snapshot(), noAis)[6]
 
         // Destination is GeoPoint(50.51, -1.20) → 5030.600,N,00112.000,W
         assertTrue(rmb.contains(",5030.600,N,00112.000,W,"))
@@ -70,36 +72,62 @@ class NmeaGeneratorTest {
 
     @Test
     fun `rmb arrival flag is A when within 0_02nm of waypoint`() {
-        val rmb = generator.generate(snapshot(distanceToWaypoint = 0.01))[6]
+        val rmb = generator.generate(snapshot(distanceToWaypoint = 0.01), noAis)[6]
 
         assertTrue(rmb.contains(",A*"))
     }
 
     @Test
-    fun `marine sensor sentences include wind depth speed heading and temperature`() {
-        val sentences = generator.generate(snapshot())
+    fun `marine sensor sentences include wind depth speed rudder heading and temperature`() {
+        val sentences = generator.generate(snapshot(), noAis)
 
         assertTrue(sentences[7].startsWith("\$WIMWV,"))
         assertTrue(sentences[7].contains(",164.6,R,23.6,N,A*"))
-        assertTrue(sentences[8].startsWith("\$SDDBD,26.2,f,8.0,M,4.4,F*"))
+        assertTrue(sentences[8].startsWith("\$SDDBT,26.2,f,8.0,M,4.4,F*"))
         assertEquals(listOf("8.0", "0.0", ""), parsedFields(sentences[9]))
         assertEquals(listOf("12.50", "0.00", "A", "13.10", "0.00", "A", "", "", "", ""), parsedFields(sentences[10]))
-        assertTrue(sentences[11].startsWith("\$HCHDT,91.2,T*"))
-        assertEquals(listOf("91.2", "", "", "", ""), parsedFields(sentences[12]))
-        assertTrue(sentences[13].startsWith("\$YCMTW,14.0,C*"))
+        assertTrue(sentences[11].startsWith("\$IIRSA,0.0,A,,*"))
+        assertTrue(sentences[12].startsWith("\$HCHDT,91.2,T*"))
+        assertEquals(listOf("91.2", "", "", "", ""), parsedFields(sentences[13]))
+        assertTrue(sentences[14].startsWith("\$YCMTW,14.0,C*"))
     }
 
     @Test
-    fun `depth sentences use snapshot depth in meters feet and fathoms`() {
-        val sentences = generator.generate(snapshot(depthMeters = 12.3))
+    fun `depth sentences use snapshot depth in meters feet and fathoms as DBT`() {
+        val sentences = generator.generate(snapshot(depthMeters = 12.3), noAis)
 
-        assertTrue(sentences[8].startsWith("\$SDDBD,40.4,f,12.3,M,6.7,F*"))
+        assertTrue(sentences[8].startsWith("\$SDDBT,40.4,f,12.3,M,6.7,F*"))
         assertEquals(listOf("12.3", "0.0", ""), parsedFields(sentences[9]))
     }
 
     @Test
+    fun `rsa uses rudder angle and can emit status V`() {
+        val valid = generator.generate(
+            snapshot(),
+            SimulatorSettings(emitAis = false, rudderAngleDegrees = -12.5)
+        )
+        val invalid = generator.generate(
+            snapshot(),
+            SimulatorSettings(emitAis = false, rudderAngleDegrees = 8.0, rsaStatusInvalid = true)
+        )
+
+        assertTrue(valid[11].startsWith("\$IIRSA,-12.5,A,,*"))
+        assertTrue(invalid[11].startsWith("\$IIRSA,8.0,V,,*"))
+    }
+
+    @Test
+    fun `mwv can emit status V`() {
+        val sentences = generator.generate(
+            snapshot(),
+            SimulatorSettings(emitAis = false, mwvStatusInvalid = true)
+        )
+
+        assertTrue(sentences[7].contains(",164.6,R,23.6,N,V*"))
+    }
+
+    @Test
     fun `generated sentences use expected field counts`() {
-        val sentences = generator.generate(snapshot())
+        val sentences = generator.generate(snapshot(), noAis)
         val expectedFieldCounts = mapOf(
             "GPAPB" to 15,
             "GPXTE" to 5,
@@ -109,9 +137,10 @@ class NmeaGeneratorTest {
             "GPVHW" to 8,
             "GPRMB" to 13,
             "WIMWV" to 5,
-            "SDDBD" to 6,
+            "SDDBT" to 6,
             "SDDPT" to 3,
             "IIVBW" to 10,
+            "IIRSA" to 4,
             "HCHDT" to 2,
             "HCHDG" to 5,
             "YCMTW" to 2
@@ -125,7 +154,7 @@ class NmeaGeneratorTest {
 
     @Test
     fun `rmc and vtg use course and speed over ground`() {
-        val sentences = generator.generate(snapshot())
+        val sentences = generator.generate(snapshot(), noAis)
 
         assertTrue(sentences[2].contains(",13.10,094.0,"))
         assertTrue(sentences[4].contains("\$GPVTG,094.0,T,,M,13.10,N,24.26,K,A*"))
@@ -133,11 +162,47 @@ class NmeaGeneratorTest {
 
     @Test
     fun `coordinate rounding rolls minutes into degrees`() {
-        val rmc = generator.generate(snapshot(position = GeoPoint(12.9999999, 179.9999999)))[2]
+        val rmc = generator.generate(snapshot(position = GeoPoint(12.9999999, 179.9999999)), noAis)[2]
 
         assertTrue(rmc.contains(",1300.000,N,18000.000,E,"))
         assertFalse(rmc.contains("1260.000"))
         assertFalse(rmc.contains("17960.000"))
+    }
+
+    @Test
+    fun `ais emission includes class A class B and type 5 fragments`() {
+        val sentences = generator.generate(
+            snapshot(),
+            SimulatorSettings(emitAis = true, emitAivdo = false)
+        )
+
+        val aivdm = sentences.filter { it.startsWith("!AIVDM,") }
+        assertTrue(aivdm.size >= 3)
+        assertTrue(aivdm.any { it.startsWith("!AIVDM,1,1,,A,") })
+        assertTrue(aivdm.any { it.startsWith("!AIVDM,2,1,") })
+        assertTrue(aivdm.any { it.startsWith("!AIVDM,2,2,") })
+        aivdm.forEach { sentence ->
+            val body = sentence.substring(1).substringBefore("*")
+            val expectedChecksum = body.fold(0) { acc, c -> acc xor c.code }
+            assertEquals("%02X".format(expectedChecksum), sentence.substringAfter("*"))
+        }
+    }
+
+    @Test
+    fun `optional aivdo emits own ship type 1`() {
+        val sentences = generator.generate(
+            snapshot(),
+            SimulatorSettings(emitAis = true, emitAivdo = true)
+        )
+
+        assertTrue(sentences.any { it.startsWith("!AIVDO,1,1,,A,") })
+    }
+
+    @Test
+    fun `ais can be disabled`() {
+        val sentences = generator.generate(snapshot(), noAis)
+
+        assertFalse(sentences.any { it.startsWith("!AIVDM") || it.startsWith("!AIVDO") })
     }
 
     private fun snapshot(
@@ -172,11 +237,11 @@ class NmeaGeneratorTest {
     }
 
     private fun parsedType(sentence: String): String {
-        return sentence.substringAfter("\$").substringBefore("*").substringBefore(",")
+        return sentence.substring(1).substringBefore("*").substringBefore(",")
     }
 
     private fun parsedFields(sentence: String): List<String> {
-        val body = sentence.substringAfter("\$").substringBefore("*")
+        val body = sentence.substring(1).substringBefore("*")
         return body.substringAfter(",").split(",")
     }
 }

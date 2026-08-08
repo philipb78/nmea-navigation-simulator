@@ -231,6 +231,7 @@ private fun SimulatorSettings.sanitized(): SimulatorSettings {
         speedKnotsMax = speedMax,
         updateRateHz = updateRateHz.coerceAtLeast(1),
         injectedDeviationNm = injectedDeviationNm.coerceIn(-5.0, 5.0),
+        rudderAngleDegrees = rudderAngleDegrees.coerceIn(-40.0, 40.0),
         windDirectionTrueMin = windDirMin,
         windDirectionTrueMax = windDirMax,
         windSpeedKnotsMin = windSpeedMin,

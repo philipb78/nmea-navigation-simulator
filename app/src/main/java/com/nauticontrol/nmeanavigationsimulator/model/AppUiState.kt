@@ -1,8 +1,8 @@
 package com.nauticontrol.nmeanavigationsimulator.model
 
 data class AppUiState(
-    val ipAddress: String = "192.168.1.100",
-    val port: String = "10110",
+    val ipAddress: String = "192.168.1.1",
+    val port: String = "8091",
     val ipAddressError: String? = null,
     val portError: String? = null,
     val connectionState: ConnectionState = ConnectionState.DISCONNECTED,
@@ -15,6 +15,7 @@ data class AppUiState(
     val speedConfigText: String = "7.0–9.0 kn",
     val updateRateText: String = "2 Hz",
     val deviationText: String = "0.00 NM",
+    val rudderAngleText: String = "0.0°",
     val windDirectionText: String = "220–260°T",
     val windSpeedText: String = "10.0–14.0 kn",
     val depthText: String = "7.5–8.5 m",
@@ -25,6 +26,7 @@ data class AppUiState(
     val windControlsExpanded: Boolean = false,
     val waterControlsExpanded: Boolean = false,
     val currentControlsExpanded: Boolean = false,
+    val aisControlsExpanded: Boolean = false,
     val settings: SimulatorSettings = SimulatorSettings(),
     val route: List<GeoPoint> = emptyList(),
     val vesselTrack: List<GeoPoint> = emptyList(),

@@ -97,6 +97,40 @@ class MainViewModel : ViewModel() {
         }
     }
 
+    fun updateRudderAngle(value: Float) {
+        _uiState.update {
+            val settings = it.settings.copy(rudderAngleDegrees = value.toDouble().coerceIn(-40.0, 40.0))
+            it.copy(
+                settings = settings,
+                rudderAngleText = formatRudderAngle(settings.rudderAngleDegrees)
+            )
+        }
+    }
+
+    fun updateRsaStatusInvalid(enabled: Boolean) {
+        _uiState.update {
+            it.copy(settings = it.settings.copy(rsaStatusInvalid = enabled))
+        }
+    }
+
+    fun updateMwvStatusInvalid(enabled: Boolean) {
+        _uiState.update {
+            it.copy(settings = it.settings.copy(mwvStatusInvalid = enabled))
+        }
+    }
+
+    fun updateEmitAis(enabled: Boolean) {
+        _uiState.update {
+            it.copy(settings = it.settings.copy(emitAis = enabled))
+        }
+    }
+
+    fun updateEmitAivdo(enabled: Boolean) {
+        _uiState.update {
+            it.copy(settings = it.settings.copy(emitAivdo = enabled))
+        }
+    }
+
     fun updateWindDirectionRange(min: Float, max: Float) {
         _uiState.update {
             val settings = it.settings.copy(
@@ -171,6 +205,10 @@ class MainViewModel : ViewModel() {
 
     fun toggleCurrentControls() {
         _uiState.update { it.copy(currentControlsExpanded = !it.currentControlsExpanded) }
+    }
+
+    fun toggleAisControls() {
+        _uiState.update { it.copy(aisControlsExpanded = !it.aisControlsExpanded) }
     }
 
     fun toggleConnection() {
@@ -252,7 +290,7 @@ class MainViewModel : ViewModel() {
     }
 
     private fun publishSnapshot(snapshot: NavigationSnapshot, settings: SimulatorSettings) {
-        val sentences = nmeaGenerator.generate(snapshot)
+        val sentences = nmeaGenerator.generate(snapshot, settings)
         tcpClient.sendSentences(sentences)
         _uiState.update {
             it.copy(
@@ -282,6 +320,7 @@ class MainViewModel : ViewModel() {
                     settings.updateRateHz
                 ),
                 speedConfigText = formatSpeedLive(snapshot, settings),
+                rudderAngleText = formatRudderAngle(settings.rudderAngleDegrees),
                 windDirectionText = formatWindDirectionLive(snapshot, settings),
                 windSpeedText = formatWindSpeedLive(snapshot, settings),
                 depthText = formatDepthLive(snapshot, settings),
@@ -335,6 +374,9 @@ class MainViewModel : ViewModel() {
             else -> null
         }
     }
+
+    private fun formatRudderAngle(degrees: Double): String =
+        String.format(Locale.US, "%.1f°", degrees)
 
     private fun formatSpeedRange(settings: SimulatorSettings): String =
         String.format(Locale.US, "%.1f–%.1f kn", settings.speedKnotsMin, settings.speedKnotsMax)

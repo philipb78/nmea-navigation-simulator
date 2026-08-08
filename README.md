@@ -4,10 +4,11 @@ Android app for testing NMEA → N2K / SeaTalk conversion firmware. Simulates ve
 
 ## Features
 
-- **TCP Client** — Connect to any IP:Port (default: 192.168.1.100:10110)
+- **TCP Client** — Connect to any IP:Port (default: `192.168.1.1:8091`)
 - **NMEA Sentences** — Generates navigation and marine sensor sentences with proper checksums
 - **Navigation Simulation** — Waypoint tracking with autopilot corrections and current-adjusted SOG
 - **Environmental Simulation** — Wind, depth, water temperature, and current range controls with smooth live variation
+- **Rudder / AIS** — RSA rudder angle, optional MWV/RSA invalid status, and synthetic AIS targets
 - **Course Deviation** — Inject off-track scenarios to test autopilot response
 - **Track Visualization** — Real-time canvas showing vessel position, heading, and track
 - **Material Design 3** — Clean, modern UI with collapsible slider sections
@@ -23,32 +24,53 @@ Android app for testing NMEA → N2K / SeaTalk conversion firmware. Simulates ve
 | `$GPVTG` | Course Over Ground and Ground Speed |
 | `$GPVHW` | Water speed and heading |
 | `$GPRMB` | Recommended Minimum Navigation Information |
-| `$WIMWV` | Wind speed and angle |
-| `$WIMWD` | Wind direction and speed |
-| `$SDDBD` | Depth below transducer |
+| `$WIMWV` | Wind speed and angle (status A, or V when toggled) |
+| `$SDDBT` | Depth below transducer |
 | `$SDDPT` | Depth |
 | `$IIVBW` | Dual ground and water speed |
+| `$IIRSA` | Rudder sensor angle |
 | `$HCHDT` | True heading |
 | `$HCHDG` | Heading, deviation, and variation |
 | `$YCMTW` | Water temperature |
+| `!AIVDM` | Synthetic AIS targets (types 1, 5, 18) when Emit AIS is on |
+| `!AIVDO` | Optional own-ship AIS type 1 when Emit AIVDO is on |
 
 ### Depth Output Notes
 
 Depth (and other environmental values) use min/max range sliders. During simulation, `SimulationEngine` smoothly varies each value within its range and emits the instantaneous reading on every update. Depth flows into `NavigationSnapshot.depthMeters` as:
 
-- `$SDDBD,<feet>,f,<meters>,M,<fathoms>,F*hh`
+- `$SDDBT,<feet>,f,<meters>,M,<fathoms>,F*hh`
 - `$SDDPT,<meters>,0.0,*hh`
 
-The TCP client writes the full generated list on each update, including both depth sentences. Firmware should accept the `SD` talker, parse meters from field 3 of `DBD` or field 1 of `DPT`, and verify or ignore the standard NMEA checksum according to its existing parser policy.
+Use **DBT** (not the non-standard DBD talker/sentence). The TCP client writes the full generated list on each update, including both depth sentences. Firmware should accept the `SD` talker, parse meters from field 3 of `DBT` or field 1 of `DPT`, and verify or ignore the standard NMEA checksum according to its existing parser policy.
+
+### Rudder (RSA)
+
+- Slider range: **-40° … +40°**
+- Each tick emits `$IIRSA,<angle>,A,,*hh`
+- Enable **RSA status V** to emit status `V` instead of `A`
+
+### AIS (AIVDM / AIVDO)
+
+When **Emit AIS** is enabled (default on), each tick emits synthetic targets offset from own-ship:
+
+- Type 1 Class A position (`!AIVDM`) — MMSI `257000001`, ~0.3 NM ahead
+- Type 18 Class B position (`!AIVDM`) — MMSI `257000002`, ~0.5 NM starboard
+- Type 5 Class A static/voyage data every ~30 s as a 2-fragment `!AIVDM`
+- Optional **Emit AIVDO own-ship** — type 1 `!AIVDO` from current lat/lon/COG/SOG/HDG
+
+Payloads use a minimal 6-bit AIS encoder for message types **1**, **5**, and **18** only.
 
 ## Simulator Controls
 
 - **Speed range (knots)** — 1–30 knots STW; varies smoothly within the range during simulation
 - **Update Rate (Hz)** — 1–10 updates per second
 - **Course Deviation (NM)** — Inject ±0.5 NM deviation to test autopilot corrections
-- **Wind** — Direction and speed ranges for MWV/MWD output (relative angle follows heading)
-- **Depth and Temperature** — Ranges for DBD/DPT/MTW output; values drift slowly like real sensors
+- **Rudder angle (°)** — Direct RSA output; optional invalid status
+- **Wind** — Direction and speed ranges for MWV output (relative angle follows heading); optional MWV status V
+- **Depth and Temperature** — Ranges for DBT/DPT/MTW output; values drift slowly like real sensors
 - **Current** — Direction and speed ranges used to derive COG/SOG from vessel STW
+- **AIS** — Toggle Emit AIS / Emit AIVDO
 
 Set min and max equal on any range slider to hold that value fixed.
 
@@ -62,7 +84,7 @@ Set min and max equal on any range slider to hold that value fixed.
 
 ## Usage for Testing
 
-1. **Connect** — Enter your Nauti-Controller IP and port (default: 192.168.1.100:10110)
+1. **Connect** — Enter your Nauti-Controller IP and port (default: `192.168.1.1:8091`)
 2. **Start Simulation** — Vessel begins navigating between waypoints
 3. **Adjust Deviation** — Use the course deviation slider to simulate off-track scenarios
 4. **Monitor** — Watch heading, speed, XTE, and track visualization
@@ -74,7 +96,7 @@ Set min and max equal on any range slider to hold that value fixed.
 app/src/main/java/com/nauticontrol/nmeanavigationsimulator/
 ├── model/           # Data classes (GeoPoint, Waypoint, NavigationSnapshot)
 ├── network/         # TCP client for NMEA transmission
-├── nmea/            # NMEA sentence generator with checksum
+├── nmea/            # NMEA sentence generator, AIS encoder, checksum
 ├── simulation/      # Simulation engine and geo math
 └── ui/              # MainActivity, ViewModel, TrackView
 ```

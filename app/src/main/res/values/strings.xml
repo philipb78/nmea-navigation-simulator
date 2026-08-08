@@ -11,10 +11,16 @@
     <string name="speed_knots">Speed range (knots)</string>
     <string name="update_rate_hz">Update rate (Hz)</string>
     <string name="course_deviation">Injected course deviation (NM)</string>
+    <string name="rudder_angle">Rudder angle (°)</string>
+    <string name="rsa_status_invalid">RSA status V</string>
+    <string name="mwv_status_invalid">MWV status V</string>
     <string name="vessel_controls">Vessel</string>
     <string name="wind_controls">Wind</string>
     <string name="water_controls">Depth and temperature</string>
     <string name="current_controls">Current</string>
+    <string name="ais_controls">AIS</string>
+    <string name="emit_ais">Emit AIS</string>
+    <string name="emit_aivdo">Emit AIVDO own-ship</string>
     <string name="wind_direction_true">Wind direction range (°T)</string>
     <string name="wind_speed_knots">Wind speed range (knots)</string>
     <string name="depth_meters">Depth range (m)</string>

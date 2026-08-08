@@ -40,6 +40,7 @@ class MainActivity : AppCompatActivity() {
         binding.speedConfigTextView.text = viewModel.uiState.value.speedConfigText
         binding.updateRateTextView.text = viewModel.uiState.value.updateRateText
         binding.deviationTextView.text = viewModel.uiState.value.deviationText
+        binding.rudderAngleTextView.text = viewModel.uiState.value.rudderAngleText
         binding.windDirectionTextView.text = viewModel.uiState.value.windDirectionText
         binding.windSpeedTextView.text = viewModel.uiState.value.windSpeedText
         binding.depthTextView.text = viewModel.uiState.value.depthText
@@ -49,6 +50,11 @@ class MainActivity : AppCompatActivity() {
         bindRangeSlider(binding.speedRangeSlider, settings.speedKnotsMin, settings.speedKnotsMax)
         binding.updateRateSlider.value = settings.updateRateHz.toFloat()
         binding.deviationSlider.value = settings.injectedDeviationNm.toFloat()
+        binding.rudderAngleSlider.value = settings.rudderAngleDegrees.toFloat()
+        binding.rsaStatusInvalidSwitch.isChecked = settings.rsaStatusInvalid
+        binding.mwvStatusInvalidSwitch.isChecked = settings.mwvStatusInvalid
+        binding.emitAisSwitch.isChecked = settings.emitAis
+        binding.emitAivdoSwitch.isChecked = settings.emitAivdo
         bindRangeSlider(binding.windDirectionRangeSlider, settings.windDirectionTrueMin, settings.windDirectionTrueMax)
         bindRangeSlider(binding.windSpeedRangeSlider, settings.windSpeedKnotsMin, settings.windSpeedKnotsMax)
         bindRangeSlider(binding.depthRangeSlider, settings.depthMetersMin, settings.depthMetersMax)
@@ -68,6 +74,7 @@ class MainActivity : AppCompatActivity() {
         binding.windSectionButton.setOnClickListener { viewModel.toggleWindControls() }
         binding.waterSectionButton.setOnClickListener { viewModel.toggleWaterControls() }
         binding.currentSectionButton.setOnClickListener { viewModel.toggleCurrentControls() }
+        binding.aisSectionButton.setOnClickListener { viewModel.toggleAisControls() }
         binding.speedRangeSlider.addOnChangeListener(rangeListener { min, max ->
             viewModel.updateSpeedRange(min, max)
         })
@@ -76,6 +83,21 @@ class MainActivity : AppCompatActivity() {
         }
         binding.deviationSlider.addOnChangeListener { _, value, fromUser ->
             if (fromUser) viewModel.updateDeviation(value)
+        }
+        binding.rudderAngleSlider.addOnChangeListener { _, value, fromUser ->
+            if (fromUser) viewModel.updateRudderAngle(value)
+        }
+        binding.rsaStatusInvalidSwitch.setOnCheckedChangeListener { _, isChecked ->
+            viewModel.updateRsaStatusInvalid(isChecked)
+        }
+        binding.mwvStatusInvalidSwitch.setOnCheckedChangeListener { _, isChecked ->
+            viewModel.updateMwvStatusInvalid(isChecked)
+        }
+        binding.emitAisSwitch.setOnCheckedChangeListener { _, isChecked ->
+            viewModel.updateEmitAis(isChecked)
+        }
+        binding.emitAivdoSwitch.setOnCheckedChangeListener { _, isChecked ->
+            viewModel.updateEmitAivdo(isChecked)
         }
         binding.windDirectionRangeSlider.addOnChangeListener(rangeListener { min, max ->
             viewModel.updateWindDirectionRange(min, max)
@@ -132,12 +154,28 @@ class MainActivity : AppCompatActivity() {
                     binding.speedConfigTextView.text = state.speedConfigText
                     binding.updateRateTextView.text = state.updateRateText
                     binding.deviationTextView.text = state.deviationText
+                    binding.rudderAngleTextView.text = state.rudderAngleText
                     binding.windDirectionTextView.text = state.windDirectionText
                     binding.windSpeedTextView.text = state.windSpeedText
                     binding.depthTextView.text = state.depthText
                     binding.waterTemperatureTextView.text = state.waterTemperatureText
                     binding.currentDirectionTextView.text = state.currentDirectionText
                     binding.currentSpeedTextView.text = state.currentSpeedText
+                    if (binding.rudderAngleSlider.value != state.settings.rudderAngleDegrees.toFloat()) {
+                        binding.rudderAngleSlider.value = state.settings.rudderAngleDegrees.toFloat()
+                    }
+                    if (binding.rsaStatusInvalidSwitch.isChecked != state.settings.rsaStatusInvalid) {
+                        binding.rsaStatusInvalidSwitch.isChecked = state.settings.rsaStatusInvalid
+                    }
+                    if (binding.mwvStatusInvalidSwitch.isChecked != state.settings.mwvStatusInvalid) {
+                        binding.mwvStatusInvalidSwitch.isChecked = state.settings.mwvStatusInvalid
+                    }
+                    if (binding.emitAisSwitch.isChecked != state.settings.emitAis) {
+                        binding.emitAisSwitch.isChecked = state.settings.emitAis
+                    }
+                    if (binding.emitAivdoSwitch.isChecked != state.settings.emitAivdo) {
+                        binding.emitAivdoSwitch.isChecked = state.settings.emitAivdo
+                    }
                     syncRangeSlider(binding.speedRangeSlider, state.settings.speedKnotsMin, state.settings.speedKnotsMax)
                     syncRangeSlider(
                         binding.windDirectionRangeSlider,
@@ -169,6 +207,7 @@ class MainActivity : AppCompatActivity() {
                     binding.windControlsLayout.visibility = state.windControlsExpanded.toVisibility()
                     binding.waterControlsLayout.visibility = state.waterControlsExpanded.toVisibility()
                     binding.currentControlsLayout.visibility = state.currentControlsExpanded.toVisibility()
+                    binding.aisControlsLayout.visibility = state.aisControlsExpanded.toVisibility()
                     binding.vesselSectionButton.text =
                         sectionTitle(getString(R.string.vessel_controls), state.vesselControlsExpanded)
                     binding.windSectionButton.text =
@@ -177,6 +216,8 @@ class MainActivity : AppCompatActivity() {
                         sectionTitle(getString(R.string.water_controls), state.waterControlsExpanded)
                     binding.currentSectionButton.text =
                         sectionTitle(getString(R.string.current_controls), state.currentControlsExpanded)
+                    binding.aisSectionButton.text =
+                        sectionTitle(getString(R.string.ais_controls), state.aisControlsExpanded)
                     binding.logTextView.text = state.logLines.joinToString("\n")
                     binding.trackView.update(
                         route = state.route,
