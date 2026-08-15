@@ -41,6 +41,7 @@ class MainActivity : AppCompatActivity() {
         binding.updateRateTextView.text = viewModel.uiState.value.updateRateText
         binding.deviationTextView.text = viewModel.uiState.value.deviationText
         binding.rudderAngleTextView.text = viewModel.uiState.value.rudderAngleText
+        binding.variationTextView.text = viewModel.uiState.value.variationText
         binding.windDirectionTextView.text = viewModel.uiState.value.windDirectionText
         binding.windSpeedTextView.text = viewModel.uiState.value.windSpeedText
         binding.depthTextView.text = viewModel.uiState.value.depthText
@@ -51,8 +52,12 @@ class MainActivity : AppCompatActivity() {
         binding.updateRateSlider.value = settings.updateRateHz.toFloat()
         binding.deviationSlider.value = settings.injectedDeviationNm.toFloat()
         binding.rudderAngleSlider.value = settings.rudderAngleDegrees.toFloat()
+        binding.variationSlider.value = settings.magneticVariationDegrees.toFloat()
         binding.rsaStatusInvalidSwitch.isChecked = settings.rsaStatusInvalid
         binding.mwvStatusInvalidSwitch.isChecked = settings.mwvStatusInvalid
+        binding.muteNmeaTxSwitch.isChecked = settings.muteNmeaTx
+        binding.gpsFixInvalidSwitch.isChecked = settings.gpsFixInvalid
+        binding.depthFieldsBlankSwitch.isChecked = settings.depthFieldsBlank
         binding.emitAisSwitch.isChecked = settings.emitAis
         binding.emitAivdoSwitch.isChecked = settings.emitAivdo
         bindRangeSlider(binding.windDirectionRangeSlider, settings.windDirectionTrueMin, settings.windDirectionTrueMax)
@@ -87,11 +92,23 @@ class MainActivity : AppCompatActivity() {
         binding.rudderAngleSlider.addOnChangeListener { _, value, fromUser ->
             if (fromUser) viewModel.updateRudderAngle(value)
         }
+        binding.variationSlider.addOnChangeListener { _, value, fromUser ->
+            if (fromUser) viewModel.updateVariation(value)
+        }
         binding.rsaStatusInvalidSwitch.setOnCheckedChangeListener { _, isChecked ->
             viewModel.updateRsaStatusInvalid(isChecked)
         }
         binding.mwvStatusInvalidSwitch.setOnCheckedChangeListener { _, isChecked ->
             viewModel.updateMwvStatusInvalid(isChecked)
+        }
+        binding.muteNmeaTxSwitch.setOnCheckedChangeListener { _, isChecked ->
+            viewModel.updateMuteNmeaTx(isChecked)
+        }
+        binding.gpsFixInvalidSwitch.setOnCheckedChangeListener { _, isChecked ->
+            viewModel.updateGpsFixInvalid(isChecked)
+        }
+        binding.depthFieldsBlankSwitch.setOnCheckedChangeListener { _, isChecked ->
+            viewModel.updateDepthFieldsBlank(isChecked)
         }
         binding.emitAisSwitch.setOnCheckedChangeListener { _, isChecked ->
             viewModel.updateEmitAis(isChecked)
@@ -155,6 +172,7 @@ class MainActivity : AppCompatActivity() {
                     binding.updateRateTextView.text = state.updateRateText
                     binding.deviationTextView.text = state.deviationText
                     binding.rudderAngleTextView.text = state.rudderAngleText
+                    binding.variationTextView.text = state.variationText
                     binding.windDirectionTextView.text = state.windDirectionText
                     binding.windSpeedTextView.text = state.windSpeedText
                     binding.depthTextView.text = state.depthText
@@ -164,11 +182,23 @@ class MainActivity : AppCompatActivity() {
                     if (binding.rudderAngleSlider.value != state.settings.rudderAngleDegrees.toFloat()) {
                         binding.rudderAngleSlider.value = state.settings.rudderAngleDegrees.toFloat()
                     }
+                    if (binding.variationSlider.value != state.settings.magneticVariationDegrees.toFloat()) {
+                        binding.variationSlider.value = state.settings.magneticVariationDegrees.toFloat()
+                    }
                     if (binding.rsaStatusInvalidSwitch.isChecked != state.settings.rsaStatusInvalid) {
                         binding.rsaStatusInvalidSwitch.isChecked = state.settings.rsaStatusInvalid
                     }
                     if (binding.mwvStatusInvalidSwitch.isChecked != state.settings.mwvStatusInvalid) {
                         binding.mwvStatusInvalidSwitch.isChecked = state.settings.mwvStatusInvalid
+                    }
+                    if (binding.muteNmeaTxSwitch.isChecked != state.settings.muteNmeaTx) {
+                        binding.muteNmeaTxSwitch.isChecked = state.settings.muteNmeaTx
+                    }
+                    if (binding.gpsFixInvalidSwitch.isChecked != state.settings.gpsFixInvalid) {
+                        binding.gpsFixInvalidSwitch.isChecked = state.settings.gpsFixInvalid
+                    }
+                    if (binding.depthFieldsBlankSwitch.isChecked != state.settings.depthFieldsBlank) {
+                        binding.depthFieldsBlankSwitch.isChecked = state.settings.depthFieldsBlank
                     }
                     if (binding.emitAisSwitch.isChecked != state.settings.emitAis) {
                         binding.emitAisSwitch.isChecked = state.settings.emitAis

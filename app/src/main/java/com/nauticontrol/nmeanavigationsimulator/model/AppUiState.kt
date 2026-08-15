@@ -16,6 +16,7 @@ data class AppUiState(
     val updateRateText: String = "2 Hz",
     val deviationText: String = "0.00 NM",
     val rudderAngleText: String = "0.0°",
+    val variationText: String = "4.0°W",
     val windDirectionText: String = "220–260°T",
     val windSpeedText: String = "10.0–14.0 kn",
     val depthText: String = "7.5–8.5 m",

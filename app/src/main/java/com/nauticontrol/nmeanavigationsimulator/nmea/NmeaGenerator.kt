@@ -32,18 +32,19 @@ class NmeaGenerator {
         val sentences = mutableListOf(
             gpApb(snapshot),
             gpXte(snapshot),
-            gpRmc(snapshot),
-            gpGga(snapshot),
-            gpVtg(snapshot),
-            gpVhw(snapshot),
+            gpRmc(snapshot, sanitized),
+            gpGga(snapshot, sanitized),
+            gpGll(snapshot, sanitized),
+            gpVtg(snapshot, sanitized),
+            gpVhw(snapshot, sanitized),
             gpRmb(snapshot),
             wiMwv(snapshot, sanitized),
-            sdDbt(snapshot),
-            sdDpt(snapshot),
+            sdDbt(snapshot, sanitized),
+            sdDpt(snapshot, sanitized),
             iiVbw(snapshot),
             iiRsa(sanitized),
             hcHdt(snapshot),
-            hcHdg(snapshot),
+            hcHdg(snapshot, sanitized),
             ycMtw(snapshot)
         )
         if (sanitized.emitAis) {
@@ -86,12 +87,14 @@ class NmeaGenerator {
         return sentence("GPXTE", "A", "A", xteMagnitude, steerDirection, "N")
     }
 
-    private fun gpRmc(snapshot: NavigationSnapshot): String {
+    private fun gpRmc(snapshot: NavigationSnapshot, settings: SimulatorSettings): String {
         val instant = Instant.ofEpochMilli(snapshot.timestampMillis)
+        val status = if (settings.gpsFixInvalid) "V" else "A"
+        val mode = if (settings.gpsFixInvalid) "N" else "A"
         return sentence(
             "GPRMC",
             utcTimeFormat.format(instant),
-            "A",
+            status,
             latitude(snapshot.position),
             latitudeHemisphere(snapshot.position),
             longitude(snapshot.position),
@@ -99,14 +102,15 @@ class NmeaGenerator {
             "%.2f".format(Locale.US, snapshot.speedOverGroundKnots),
             "%.1f".format(Locale.US, snapshot.courseOverGroundTrue),
             utcDateFormat.format(instant),
-            "",
-            "",
-            "A"
+            variationMagnitude(settings.magneticVariationDegrees),
+            variationHemisphere(settings.magneticVariationDegrees),
+            mode
         )
     }
 
-    private fun gpGga(snapshot: NavigationSnapshot): String {
+    private fun gpGga(snapshot: NavigationSnapshot, settings: SimulatorSettings): String {
         val instant = Instant.ofEpochMilli(snapshot.timestampMillis)
+        val fixQuality = if (settings.gpsFixInvalid) "0" else "1"
         return sentence(
             "GPGGA",
             utcTimeFormat.format(instant),
@@ -114,7 +118,7 @@ class NmeaGenerator {
             latitudeHemisphere(snapshot.position),
             longitude(snapshot.position),
             longitudeHemisphere(snapshot.position),
-            "1",
+            fixQuality,
             "10",
             "0.9",
             "5.0",
@@ -126,12 +130,28 @@ class NmeaGenerator {
         )
     }
 
-    private fun gpVhw(snapshot: NavigationSnapshot): String {
+    private fun gpGll(snapshot: NavigationSnapshot, settings: SimulatorSettings): String {
+        val instant = Instant.ofEpochMilli(snapshot.timestampMillis)
+        val status = if (settings.gpsFixInvalid) "V" else "A"
+        val mode = if (settings.gpsFixInvalid) "N" else "A"
+        return sentence(
+            "GPGLL",
+            latitude(snapshot.position),
+            latitudeHemisphere(snapshot.position),
+            longitude(snapshot.position),
+            longitudeHemisphere(snapshot.position),
+            utcTimeFormat.format(instant),
+            status,
+            mode
+        )
+    }
+
+    private fun gpVhw(snapshot: NavigationSnapshot, settings: SimulatorSettings): String {
         val speedKmh = snapshot.speedThroughWaterKnots * 1.852
         return sentence(
             "GPVHW",
             "%.1f".format(Locale.US, snapshot.headingTrue), "T",
-            "", "M",
+            "%.1f".format(Locale.US, magneticDegrees(snapshot.headingTrue, settings.magneticVariationDegrees)), "M",
             "%.2f".format(Locale.US, snapshot.speedThroughWaterKnots), "N",
             "%.2f".format(Locale.US, speedKmh), "K"
         )
@@ -161,19 +181,20 @@ class NmeaGenerator {
         )
     }
 
-    private fun gpVtg(snapshot: NavigationSnapshot): String {
+    private fun gpVtg(snapshot: NavigationSnapshot, settings: SimulatorSettings): String {
         val speedKmh = snapshot.speedOverGroundKnots * 1.852
+        val mode = if (settings.gpsFixInvalid) "N" else "A"
         return sentence(
             "GPVTG",
             "%.1f".format(Locale.US, snapshot.courseOverGroundTrue),
             "T",
-            "",
+            "%.1f".format(Locale.US, magneticDegrees(snapshot.courseOverGroundTrue, settings.magneticVariationDegrees)),
             "M",
             "%.2f".format(Locale.US, snapshot.speedOverGroundKnots),
             "N",
             "%.2f".format(Locale.US, speedKmh),
             "K",
-            "A"
+            mode
         )
     }
 
@@ -196,7 +217,10 @@ class NmeaGenerator {
         )
     }
 
-    private fun sdDbt(snapshot: NavigationSnapshot): String {
+    private fun sdDbt(snapshot: NavigationSnapshot, settings: SimulatorSettings): String {
+        if (settings.depthFieldsBlank) {
+            return sentence("SDDBT", "", "f", "", "M", "", "F")
+        }
         val depthFeet = snapshot.depthMeters * 3.28084
         val depthFathoms = snapshot.depthMeters * 0.546807
         return sentence(
@@ -207,7 +231,10 @@ class NmeaGenerator {
         )
     }
 
-    private fun sdDpt(snapshot: NavigationSnapshot): String {
+    private fun sdDpt(snapshot: NavigationSnapshot, settings: SimulatorSettings): String {
+        if (settings.depthFieldsBlank) {
+            return sentence("SDDPT", "", "0.0", "")
+        }
         return sentence(
             "SDDPT",
             "%.1f".format(Locale.US, snapshot.depthMeters),
@@ -247,14 +274,14 @@ class NmeaGenerator {
         return sentence("HCHDT", "%.1f".format(Locale.US, snapshot.headingTrue), "T")
     }
 
-    private fun hcHdg(snapshot: NavigationSnapshot): String {
+    private fun hcHdg(snapshot: NavigationSnapshot, settings: SimulatorSettings): String {
         return sentence(
             "HCHDG",
-            "%.1f".format(Locale.US, snapshot.headingTrue),
+            "%.1f".format(Locale.US, magneticDegrees(snapshot.headingTrue, settings.magneticVariationDegrees)),
             "",
             "",
-            "",
-            ""
+            variationMagnitude(settings.magneticVariationDegrees),
+            variationHemisphere(settings.magneticVariationDegrees)
         )
     }
 
@@ -374,6 +401,18 @@ class NmeaGenerator {
         return "%0${degreeWidth}d%06.3f".format(Locale.US, degrees, minutes)
     }
 
+    private fun magneticDegrees(trueDegrees: Double, variationEastPositive: Double): Double {
+        return GeoMath.normalizeDegrees(trueDegrees - variationEastPositive)
+    }
+
+    private fun variationMagnitude(variationEastPositive: Double): String {
+        return "%.1f".format(Locale.US, variationEastPositive.absoluteValue)
+    }
+
+    private fun variationHemisphere(variationEastPositive: Double): String {
+        return if (variationEastPositive >= 0.0) "E" else "W"
+    }
+
     private fun safeField(value: String): String {
         return value.filterNot { it == ',' || it == '*' || it == '$' || it.code < 32 }
     }
@@ -408,6 +447,7 @@ class NmeaGenerator {
 
 private fun SimulatorSettings.sanitizedForNmea(): SimulatorSettings {
     return copy(
-        rudderAngleDegrees = rudderAngleDegrees.coerceIn(-40.0, 40.0)
+        rudderAngleDegrees = rudderAngleDegrees.coerceIn(-40.0, 40.0),
+        magneticVariationDegrees = magneticVariationDegrees.coerceIn(-30.0, 30.0)
     )
 }

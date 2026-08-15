@@ -14,6 +14,10 @@
     <string name="rudder_angle">Rudder angle (°)</string>
     <string name="rsa_status_invalid">RSA status V</string>
     <string name="mwv_status_invalid">MWV status V</string>
+    <string name="mute_nmea_tx">Mute NMEA TX</string>
+    <string name="magnetic_variation">Magnetic variation (°E, west is negative)</string>
+    <string name="gps_fix_invalid">GPS loss (RMC V / GGA 0)</string>
+    <string name="depth_fields_blank">Depth invalid (blank DBT/DPT)</string>
     <string name="vessel_controls">Vessel</string>
     <string name="wind_controls">Wind</string>
     <string name="water_controls">Depth and temperature</string>

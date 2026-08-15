@@ -42,7 +42,7 @@ class MainViewModel : ViewModel() {
                 _uiState.update { current ->
                     current.copy(
                         connectionState = state,
-                        statusText = buildStatusText(state, current.isSimulating)
+                        statusText = buildStatusText(state, current.isSimulating, current.settings.muteNmeaTx)
                     )
                 }
             }
@@ -116,6 +116,40 @@ class MainViewModel : ViewModel() {
     fun updateMwvStatusInvalid(enabled: Boolean) {
         _uiState.update {
             it.copy(settings = it.settings.copy(mwvStatusInvalid = enabled))
+        }
+    }
+
+    fun updateVariation(value: Float) {
+        _uiState.update {
+            val settings = it.settings.copy(
+                magneticVariationDegrees = value.toDouble().coerceIn(-30.0, 30.0)
+            )
+            it.copy(settings = settings, variationText = formatVariation(settings.magneticVariationDegrees))
+        }
+    }
+
+    fun updateMuteNmeaTx(enabled: Boolean) {
+        val wasMuted = _uiState.value.settings.muteNmeaTx
+        _uiState.update {
+            it.copy(
+                settings = it.settings.copy(muteNmeaTx = enabled),
+                statusText = buildStatusText(it.connectionState, it.isSimulating, enabled)
+            )
+        }
+        if (wasMuted != enabled) {
+            appendLog(if (enabled) "NMEA TX muted" else "NMEA TX resumed")
+        }
+    }
+
+    fun updateGpsFixInvalid(enabled: Boolean) {
+        _uiState.update {
+            it.copy(settings = it.settings.copy(gpsFixInvalid = enabled))
+        }
+    }
+
+    fun updateDepthFieldsBlank(enabled: Boolean) {
+        _uiState.update {
+            it.copy(settings = it.settings.copy(depthFieldsBlank = enabled))
         }
     }
 
@@ -252,7 +286,7 @@ class MainViewModel : ViewModel() {
                 isSimulating = true,
                 route = simulationEngine.currentRoute(),
                 vesselTrack = emptyList(),
-                statusText = buildStatusText(it.connectionState, true)
+                statusText = buildStatusText(it.connectionState, true, it.settings.muteNmeaTx)
             )
         }
         appendLog("Simulation started")
@@ -276,7 +310,7 @@ class MainViewModel : ViewModel() {
         _uiState.update {
             it.copy(
                 isSimulating = false,
-                statusText = buildStatusText(it.connectionState, false),
+                statusText = buildStatusText(it.connectionState, false, it.settings.muteNmeaTx),
                 speedConfigText = formatSpeedRange(it.settings),
                 windDirectionText = formatWindDirectionRange(it.settings),
                 windSpeedText = formatWindSpeedRange(it.settings),
@@ -291,14 +325,24 @@ class MainViewModel : ViewModel() {
 
     private fun publishSnapshot(snapshot: NavigationSnapshot, settings: SimulatorSettings) {
         val sentences = nmeaGenerator.generate(snapshot, settings)
-        tcpClient.sendSentences(sentences)
+        if (!settings.muteNmeaTx) {
+            tcpClient.sendSentences(sentences)
+        }
+        val headingMagnetic = GeoMath.normalizeDegrees(
+            snapshot.headingTrue - settings.magneticVariationDegrees
+        )
         _uiState.update {
             it.copy(
                 headingTrue = snapshot.headingTrue,
                 vesselPosition = snapshot.position,
                 route = snapshot.route,
                 vesselTrack = snapshot.vesselTrack,
-                headingText = String.format(Locale.US, "Heading: %.1f°T", snapshot.headingTrue),
+                headingText = String.format(
+                    Locale.US,
+                    "Heading: %.1f°T / %.1f°M",
+                    snapshot.headingTrue,
+                    headingMagnetic
+                ),
                 speedText = String.format(
                     Locale.US,
                     "Speed: %.1f kn STW | %.1f kn SOG",
@@ -326,18 +370,27 @@ class MainViewModel : ViewModel() {
                 depthText = formatDepthLive(snapshot, settings),
                 waterTemperatureText = formatWaterTemperatureLive(snapshot, settings),
                 currentDirectionText = formatCurrentDirectionLive(snapshot, settings),
-                currentSpeedText = formatCurrentSpeedLive(snapshot, settings)
+                currentSpeedText = formatCurrentSpeedLive(snapshot, settings),
+                variationText = formatVariation(settings.magneticVariationDegrees)
             )
         }
     }
 
-    private fun buildStatusText(connectionState: ConnectionState, isSimulating: Boolean): String {
+    private fun buildStatusText(
+        connectionState: ConnectionState,
+        isSimulating: Boolean,
+        muteNmeaTx: Boolean
+    ): String {
         val connectionText = when (connectionState) {
             ConnectionState.CONNECTED -> "Connected"
             ConnectionState.CONNECTING -> "Connecting"
             ConnectionState.DISCONNECTED -> "Disconnected"
         }
-        val simulationText = if (isSimulating) "Sending" else "Stopped"
+        val simulationText = when {
+            !isSimulating -> "Stopped"
+            muteNmeaTx -> "Muted"
+            else -> "Sending"
+        }
         return "$connectionText | $simulationText"
     }
 
@@ -377,6 +430,11 @@ class MainViewModel : ViewModel() {
 
     private fun formatRudderAngle(degrees: Double): String =
         String.format(Locale.US, "%.1f°", degrees)
+
+    private fun formatVariation(variationEastPositive: Double): String {
+        val hemisphere = if (variationEastPositive >= 0.0) "E" else "W"
+        return String.format(Locale.US, "%.1f°%s", kotlin.math.abs(variationEastPositive), hemisphere)
+    }
 
     private fun formatSpeedRange(settings: SimulatorSettings): String =
         String.format(Locale.US, "%.1f–%.1f kn", settings.speedKnotsMin, settings.speedKnotsMax)

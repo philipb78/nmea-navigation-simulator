@@ -9,6 +9,8 @@ Android app for testing NMEA → N2K / SeaTalk conversion firmware. Simulates ve
 - **Navigation Simulation** — Waypoint tracking with autopilot corrections and current-adjusted SOG
 - **Environmental Simulation** — Wind, depth, water temperature, and current range controls with smooth live variation
 - **Rudder / AIS** — RSA rudder angle, optional MWV/RSA invalid status, and synthetic AIS targets
+- **Magnetic variation** — HDG is magnetic; HDT stays true (default 4°W for the Lough Neagh route)
+- **Fault inject** — Mute TX (keep TCP up), GPS loss (RMC V / GGA 0 / GLL V), blank depth
 - **Course Deviation** — Inject off-track scenarios to test autopilot response
 - **Track Visualization** — Real-time canvas showing vessel position, heading, and track
 - **Material Design 3** — Clean, modern UI with collapsible slider sections
@@ -19,10 +21,11 @@ Android app for testing NMEA → N2K / SeaTalk conversion firmware. Simulates ve
 |----------|-------------|
 | `$GPAPB` | Autopilot Sentence B — bearing, XTE, destination |
 | `$GPXTE` | Cross-Track Error — deviation from planned track |
-| `$GPRMC` | Recommended Minimum Navigation Information |
-| `$GPGGA` | GPS Fix Data — position, quality, satellites |
+| `$GPRMC` | Recommended Minimum Navigation Information (status V on GPS loss) |
+| `$GPGGA` | GPS Fix Data — position, quality, satellites (quality 0 on GPS loss) |
+| `$GPGLL` | Geographic position (status V on GPS loss) |
 | `$GPVTG` | Course Over Ground and Ground Speed |
-| `$GPVHW` | Water speed and heading |
+| `$GPVHW` | Water speed and heading (true + magnetic) |
 | `$GPRMB` | Recommended Minimum Navigation Information |
 | `$WIMWV` | Wind speed and angle (status A, or V when toggled) |
 | `$SDDBT` | Depth below transducer |
@@ -30,7 +33,7 @@ Android app for testing NMEA → N2K / SeaTalk conversion firmware. Simulates ve
 | `$IIVBW` | Dual ground and water speed |
 | `$IIRSA` | Rudder sensor angle |
 | `$HCHDT` | True heading |
-| `$HCHDG` | Heading, deviation, and variation |
+| `$HCHDG` | Magnetic heading + variation |
 | `$YCMTW` | Water temperature |
 | `!AIVDM` | Synthetic AIS targets (types 1, 5, 18) when Emit AIS is on |
 | `!AIVDO` | Optional own-ship AIS type 1 when Emit AIVDO is on |
@@ -43,6 +46,16 @@ Depth (and other environmental values) use min/max range sliders. During simulat
 - `$SDDPT,<meters>,0.0,*hh`
 
 Use **DBT** (not the non-standard DBD talker/sentence). The TCP client writes the full generated list on each update, including both depth sentences. Firmware should accept the `SD` talker, parse meters from field 3 of `DBT` or field 1 of `DPT`, and verify or ignore the standard NMEA checksum according to its existing parser policy.
+
+Enable **Depth invalid** to emit blank numeric fields (`$SDDBT,,f,,M,,F` / `$SDDPT,,0.0,`) so you can see how the hub treats a lost sounder.
+
+### Heading (HDT / HDG)
+
+- `$HCHDT` is always **true** heading
+- `$HCHDG` is **magnetic** (`true − variation`). Default variation is **4.0°W** (`-4.0` on the slider; east is positive)
+- RMC, VHW, and VTG also carry the same variation / magnetic course
+
+Firmware treats HDG field 1 as magnetic. Leave HDT on for a true heading on the bus; mute is the way to stop the stream without dropping TCP.
 
 ### Rudder (RSA)
 
@@ -67,8 +80,11 @@ Payloads use a minimal 6-bit AIS encoder for message types **1**, **5**, and **1
 - **Update Rate (Hz)** — 1–10 updates per second
 - **Course Deviation (NM)** — Inject ±0.5 NM deviation to test autopilot corrections
 - **Rudder angle (°)** — Direct RSA output; optional invalid status
+- **Magnetic variation (°E)** — West is negative; drives HDG / RMC / VHW / VTG magnetic fields
+- **Mute NMEA TX** — Simulation keeps running and TCP stays up, but no sentences are sent
+- **GPS loss** — RMC/GLL status `V`, GGA quality `0`, VTG mode `N`
 - **Wind** — Direction and speed ranges for MWV output (relative angle follows heading); optional MWV status V
-- **Depth and Temperature** — Ranges for DBT/DPT/MTW output; values drift slowly like real sensors
+- **Depth and Temperature** — Ranges for DBT/DPT/MTW output; values drift slowly like real sensors; optional blank depth
 - **Current** — Direction and speed ranges used to derive COG/SOG from vessel STW
 - **AIS** — Toggle Emit AIS / Emit AIVDO
 

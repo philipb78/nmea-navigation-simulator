@@ -21,5 +21,9 @@ data class SimulatorSettings(
     val currentDirectionTrueMin: Double = 80.0,
     val currentDirectionTrueMax: Double = 100.0,
     val currentSpeedKnotsMin: Double = 0.3,
-    val currentSpeedKnotsMax: Double = 0.7
+    val currentSpeedKnotsMax: Double = 0.7,
+    val magneticVariationDegrees: Double = -4.0,
+    val muteNmeaTx: Boolean = false,
+    val gpsFixInvalid: Boolean = false,
+    val depthFieldsBlank: Boolean = false
 )

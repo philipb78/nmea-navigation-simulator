@@ -100,6 +100,13 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
                     android:textAppearance="?attr/textAppearanceBodyMedium" />
+
+                <com.google.android.material.materialswitch.MaterialSwitch
+                    android:id="@+id/muteNmeaTxSwitch"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="@string/mute_nmea_tx" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
@@ -220,6 +227,33 @@
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
                         android:text="@string/rsa_status_invalid" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:text="@string/magnetic_variation" />
+
+                    <com.google.android.material.slider.Slider
+                        android:id="@+id/variationSlider"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:valueFrom="-30"
+                        android:valueTo="30"
+                        android:stepSize="0.5"
+                        android:value="-4" />
+
+                    <TextView
+                        android:id="@+id/variationTextView"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content" />
+
+                    <com.google.android.material.materialswitch.MaterialSwitch
+                        android:id="@+id/gpsFixInvalidSwitch"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:text="@string/gps_fix_invalid" />
                 </LinearLayout>
 
                 <com.google.android.material.button.MaterialButton
@@ -314,6 +348,13 @@
                         android:id="@+id/depthTextView"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content" />
+
+                    <com.google.android.material.materialswitch.MaterialSwitch
+                        android:id="@+id/depthFieldsBlankSwitch"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:text="@string/depth_fields_blank" />
 
                     <TextView
                         android:layout_width="match_parent"
