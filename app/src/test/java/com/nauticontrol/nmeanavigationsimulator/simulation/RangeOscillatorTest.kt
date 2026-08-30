@@ -40,6 +40,20 @@ class RangeOscillatorTest {
     }
 
     @Test
+    fun `circular range wrapping through north stays on the short arc`() {
+        val oscillator = RangeOscillator(350.0, 10.0, 5.0, 1.0, 2.0, circular = true, random = Random(3))
+        oscillator.reset(350.0, 10.0, 0L)
+        var timestamp = 0L
+        repeat(80) {
+            timestamp += 250L
+            val value = oscillator.tick(0.25, timestamp)
+            val onArc = value >= 350.0 || value <= 10.0
+            assertTrue("value $value left the 350-10 arc", onArc)
+        }
+        assertTrue(oscillator.currentValue() >= 350.0 || oscillator.currentValue() <= 10.0)
+    }
+
+    @Test
     fun `static range returns fixed value`() {
         val oscillator = RangeOscillator(12.3, 12.3, 1.0, 1.0, 2.0)
         oscillator.reset(12.3, 12.3, 0L)

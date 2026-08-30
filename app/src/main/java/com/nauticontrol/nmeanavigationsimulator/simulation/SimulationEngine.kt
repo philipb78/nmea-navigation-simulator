@@ -24,12 +24,12 @@ class SimulationEngine(
     private var lastTickTimestampMillis: Long? = null
 
     private val speedOscillator = RangeOscillator(7.0, 9.0, 0.15, 20.0, 60.0, random = random)
-    private val windDirectionOscillator = RangeOscillator(220.0, 260.0, 2.0, 45.0, 120.0, circular = true, random = random)
-    private val windSpeedOscillator = RangeOscillator(10.0, 14.0, 0.4, 15.0, 40.0, random = random)
+    private val windDirectionOscillator = RangeOscillator(255.0, 275.0, 1.0, 60.0, 150.0, circular = true, random = random)
+    private val windSpeedOscillator = RangeOscillator(10.0, 13.0, 0.3, 20.0, 50.0, random = random)
     private val depthOscillator = RangeOscillator(7.5, 8.5, 0.02, 60.0, 180.0, random = random)
     private val waterTemperatureOscillator = RangeOscillator(13.0, 15.0, 0.01, 120.0, 300.0, random = random)
-    private val currentDirectionOscillator = RangeOscillator(80.0, 100.0, 1.0, 30.0, 90.0, circular = true, random = random)
-    private val currentSpeedOscillator = RangeOscillator(0.3, 0.7, 0.05, 30.0, 90.0, random = random)
+    private val currentDirectionOscillator = RangeOscillator(350.0, 10.0, 0.5, 60.0, 180.0, circular = true, random = random)
+    private val currentSpeedOscillator = RangeOscillator(0.10, 0.25, 0.02, 45.0, 120.0, random = random)
 
     fun reset(
         settings: SimulatorSettings = SimulatorSettings(),
@@ -69,14 +69,12 @@ class SimulationEngine(
         var trackBearing = GeoMath.bearingDegrees(fromWaypoint.position, toWaypoint.position)
         var signedXte = GeoMath.crossTrackErrorNm(vesselPosition, fromWaypoint.position, toWaypoint.position)
 
+        // Following a track: heading stays on the leg. Current is the only
+        // vector that is allowed to pull COG off that heading.
         val headingError = GeoMath.shortestSignedAngleDegrees(headingTrue, trackBearing)
-        val xteCorrection = (-signedXte * 30.0).coerceIn(-25.0, 25.0)
-        val headingCorrection = (headingError * 0.35).coerceIn(-10.0, 10.0)
-        val targetHeading = GeoMath.normalizeDegrees(trackBearing + xteCorrection + headingCorrection)
         val maxTurnRateDegPerSecond = 8.0
         val maxHeadingStep = maxTurnRateDegPerSecond * deltaSeconds
-        val turnStep = GeoMath.shortestSignedAngleDegrees(headingTrue, targetHeading)
-            .coerceIn(-maxHeadingStep, maxHeadingStep)
+        val turnStep = headingError.coerceIn(-maxHeadingStep, maxHeadingStep)
         headingTrue = GeoMath.normalizeDegrees(headingTrue + turnStep)
 
         val waterEastKnots = eastComponent(speedThroughWaterKnots, headingTrue)
@@ -207,9 +205,9 @@ private fun SimulatorSettings.sanitized(): SimulatorSettings {
     val speedPair = orderedPair(speedKnotsMin, speedKnotsMax)
     val speedMin = speedPair.first.coerceAtLeast(0.0)
     val speedMax = speedPair.second.coerceAtLeast(speedMin)
-    val windDirPair = orderedPair(windDirectionTrueMin, windDirectionTrueMax)
-    val windDirMin = GeoMath.normalizeDegrees(windDirPair.first)
-    val windDirMax = GeoMath.normalizeDegrees(windDirPair.second)
+    // Keep the slider order. 350..10 is a 20° arc through north, not 10..350.
+    val windDirMin = GeoMath.normalizeDegrees(windDirectionTrueMin)
+    val windDirMax = GeoMath.normalizeDegrees(windDirectionTrueMax)
     val windSpeedPair = orderedPair(windSpeedKnotsMin, windSpeedKnotsMax)
     val windSpeedMin = windSpeedPair.first.coerceIn(0.0, 80.0)
     val windSpeedMax = windSpeedPair.second.coerceIn(windSpeedMin, 80.0)
@@ -219,9 +217,8 @@ private fun SimulatorSettings.sanitized(): SimulatorSettings {
     val tempPair = orderedPair(waterTemperatureCelsiusMin, waterTemperatureCelsiusMax)
     val tempMin = tempPair.first.coerceIn(-2.0, 40.0)
     val tempMax = tempPair.second.coerceIn(tempMin, 40.0)
-    val currentDirPair = orderedPair(currentDirectionTrueMin, currentDirectionTrueMax)
-    val currentDirMin = GeoMath.normalizeDegrees(currentDirPair.first)
-    val currentDirMax = GeoMath.normalizeDegrees(currentDirPair.second)
+    val currentDirMin = GeoMath.normalizeDegrees(currentDirectionTrueMin)
+    val currentDirMax = GeoMath.normalizeDegrees(currentDirectionTrueMax)
     val currentSpeedPair = orderedPair(currentSpeedKnotsMin, currentSpeedKnotsMax)
     val currentSpeedMin = currentSpeedPair.first.coerceIn(0.0, 10.0)
     val currentSpeedMax = currentSpeedPair.second.coerceIn(currentSpeedMin, 10.0)

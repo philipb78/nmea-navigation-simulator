@@ -83,9 +83,9 @@ Payloads use a minimal 6-bit AIS encoder for message types **1**, **5**, and **1
 - **Magnetic variation (°E)** — West is negative; drives HDG / RMC / VHW / VTG magnetic fields
 - **Mute NMEA TX** — Simulation keeps running and TCP stays up, but no sentences are sent
 - **GPS loss** — RMC/GLL status `V`, GGA quality `0`, VTG mode `N`
-- **Wind** — Direction and speed ranges for MWV output (relative angle follows heading); optional MWV status V
+- **Wind** — Direction and speed ranges for MWV output (relative angle follows heading); optional MWV status V. Default **255–275°T** so true wind sits ~20–40° off the first Lough Neagh leg instead of on the stern
 - **Depth and Temperature** — Ranges for DBT/DPT/MTW output; values drift slowly like real sensors; optional blank depth
-- **Current** — Direction and speed ranges used to derive COG/SOG from vessel STW
+- **Current** — Direction and speed ranges used to derive COG/SOG from vessel STW. Heading stays on the track; **current is the only vector that pulls COG off heading**. Lough Neagh is not tidal; default is **0.10–0.25 kn toward 350–010°T** (Bann outflow)
 - **AIS** — Toggle Emit AIS / Emit AIVDO
 
 Set min and max equal on any range slider to hold that value fixed.

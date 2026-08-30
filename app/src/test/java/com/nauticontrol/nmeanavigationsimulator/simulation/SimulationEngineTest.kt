@@ -7,6 +7,7 @@ import org.junit.Assert.assertThrows
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import kotlin.math.absoluteValue
 import kotlin.random.Random
 
 class SimulationEngineTest {
@@ -116,6 +117,50 @@ class SimulationEngineTest {
                 first.windSpeedKnots != second.windSpeedKnots ||
                 first.speedThroughWaterKnots != second.speedThroughWaterKnots
         )
+    }
+
+    @Test
+    fun `default lough current keeps heading and course within a few degrees`() {
+        val settings = SimulatorSettings(
+            speedKnotsMin = 8.0,
+            speedKnotsMax = 8.0,
+            updateRateHz = 2,
+            injectedDeviationNm = 0.0
+        )
+        val engine = SimulationEngine(random = Random(7))
+        engine.reset(settings, 0L)
+        var snapshot = engine.tick(settings, 500L, 0L)
+        repeat(40) { i ->
+            snapshot = engine.tick(settings, 500L + (i + 1) * 500L, 500L + i * 500L)
+        }
+        val set = GeoMath.shortestSignedAngleDegrees(snapshot.headingTrue, snapshot.courseOverGroundTrue)
+        assertTrue("HDG vs COG was $set", set.absoluteValue < 5.0)
+        val headingToTrack = GeoMath.shortestSignedAngleDegrees(snapshot.headingTrue, snapshot.trackBearingTrue)
+        assertTrue("HDG should stay on the track, error was $headingToTrack", headingToTrack.absoluteValue < 2.0)
+    }
+
+    @Test
+    fun `heading stays on the track and only current offsets course`() {
+        val settings = SimulatorSettings(
+            speedKnotsMin = 8.0,
+            speedKnotsMax = 8.0,
+            updateRateHz = 2,
+            injectedDeviationNm = 0.0,
+            currentDirectionTrueMin = 90.0,
+            currentDirectionTrueMax = 90.0,
+            currentSpeedKnotsMin = 2.0,
+            currentSpeedKnotsMax = 2.0
+        )
+        val engine = SimulationEngine(route, Random(8))
+        engine.reset(settings, 0L)
+        var snapshot = engine.tick(settings, 500L, 0L)
+        repeat(40) { i ->
+            snapshot = engine.tick(settings, 500L + (i + 1) * 500L, 500L + i * 500L)
+        }
+        val headingToTrack = GeoMath.shortestSignedAngleDegrees(snapshot.headingTrue, snapshot.trackBearingTrue)
+        val set = GeoMath.shortestSignedAngleDegrees(snapshot.headingTrue, snapshot.courseOverGroundTrue)
+        assertTrue("HDG left the track ($headingToTrack)", headingToTrack.absoluteValue < 2.0)
+        assertTrue("current should offset COG, set was $set", set.absoluteValue in 5.0..25.0)
     }
 
     @Test

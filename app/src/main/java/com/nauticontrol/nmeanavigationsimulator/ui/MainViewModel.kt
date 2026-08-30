@@ -339,9 +339,11 @@ class MainViewModel : ViewModel() {
                 vesselTrack = snapshot.vesselTrack,
                 headingText = String.format(
                     Locale.US,
-                    "Heading: %.1f°T / %.1f°M",
+                    "HDG %.1f°T / %.1f°M | COG %.1f°T (set %+.1f°)",
                     snapshot.headingTrue,
-                    headingMagnetic
+                    headingMagnetic,
+                    snapshot.courseOverGroundTrue,
+                    GeoMath.shortestSignedAngleDegrees(snapshot.headingTrue, snapshot.courseOverGroundTrue)
                 ),
                 speedText = String.format(
                     Locale.US,
